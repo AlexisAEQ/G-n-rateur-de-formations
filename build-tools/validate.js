@@ -5,17 +5,17 @@ import matter from 'gray-matter';
 
 // Configuration des chemins
 const FORMATIONS_DIR = './formations';
-const PUBLIC_DIR = './public';
 const ASSETS_DIR = './public/assets';
+const GENERATED_DIR = './public/generated';
 
-// Configuration des validations
+// Règles de validation
 const VALIDATION_RULES = {
   // Champs obligatoires par type de formation
   requiredFields: {
     all: ['title', 'type', 'duration', 'instructor', 'learning_objectives'],
-    equipment: ['equipment', 'equipment.name', 'equipment.manufacturer'],
-    skills: ['prerequisites', 'difficulty'],
-    safety: ['prerequisites', 'assessment'],
+    equipment: ['equipment.name', 'equipment.manufacturer'],
+    skills: ['difficulty'],
+    safety: ['assessment'],
     general: []
   },
   
@@ -25,39 +25,41 @@ const VALIDATION_RULES = {
   // Niveaux de difficulté valides
   validDifficulties: ['débutant', 'intermédiaire', 'avancé', 'expert'],
   
+  // Thèmes valides
+  validThemes: ['industrial', 'corporate', 'safety', 'custom'],
+  
   // Extensions de fichiers multimédias acceptées
-  validMediaExtensions: {
+  validExtensions: {
     videos: ['.mp4', '.webm', '.avi', '.mov', '.mkv'],
     images: ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp'],
     documents: ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.xlsx', '.xls']
   },
   
-  // Limites de taille et durée
+  // Limites
   limits: {
     titleMaxLength: 100,
-    descriptionMaxLength: 500,
-    minDuration: 5,        // minutes
-    maxDuration: 480,      // 8 heures
+    minDuration: 5,
+    maxDuration: 480,
     maxObjectives: 10,
     maxPrerequisites: 8,
     minModules: 1,
-    maxModules: 20
+    maxModules: 20,
+    minWords: 50
   }
 };
 
-// Compteurs pour les statistiques
-let validationStats = {
+// Statistiques globales
+let globalStats = {
   totalFiles: 0,
   validFiles: 0,
   invalidFiles: 0,
   totalErrors: 0,
   totalWarnings: 0,
-  errorsByType: {},
-  warningsByType: {}
+  processingTime: 0
 };
 
 /**
- * Classe pour gérer les erreurs et avertissements de validation
+ * Classe pour gérer les résultats de validation
  */
 class ValidationResult {
   constructor(filename) {
@@ -65,64 +67,60 @@ class ValidationResult {
     this.errors = [];
     this.warnings = [];
     this.isValid = true;
+    this.stats = {
+      moduleCount: 0,
+      wordCount: 0,
+      hasResources: false,
+      hasAssessment: false
+    };
   }
   
-  addError(message, field = null) {
-    this.errors.push({
-      type: 'error',
-      message,
-      field,
-      severity: 'high'
-    });
+  addError(message, field = null, severity = 'high') {
+    this.errors.push({ message, field, severity, type: 'error' });
     this.isValid = false;
-    
-    // Statistiques
-    validationStats.totalErrors++;
-    const errorType = field || 'general';
-    validationStats.errorsByType[errorType] = (validationStats.errorsByType[errorType] || 0) + 1;
+    globalStats.totalErrors++;
   }
   
-  addWarning(message, field = null) {
-    this.warnings.push({
-      type: 'warning',
-      message,
-      field,
-      severity: 'medium'
-    });
-    
-    // Statistiques
-    validationStats.totalWarnings++;
-    const warningType = field || 'general';
-    validationStats.warningsByType[warningType] = (validationStats.warningsByType[warningType] || 0) + 1;
+  addWarning(message, field = null, severity = 'medium') {
+    this.warnings.push({ message, field, severity, type: 'warning' });
+    globalStats.totalWarnings++;
   }
   
   hasIssues() {
     return this.errors.length > 0 || this.warnings.length > 0;
   }
   
+  getSummary() {
+    return {
+      filename: this.filename,
+      isValid: this.isValid,
+      errorCount: this.errors.length,
+      warningCount: this.warnings.length,
+      stats: this.stats
+    };
+  }
+  
   print() {
-    if (!this.hasIssues()) {
-      console.log(`✅ ${this.filename} - Aucun problème détecté`);
+    if (!this.hasIssues() && this.isValid) {
+      console.log(`✅ ${this.filename} - Validation réussie`);
       return;
     }
     
     console.log(`\n📄 ${this.filename}:`);
     
-    // Afficher les erreurs
     if (this.errors.length > 0) {
       console.log(`  ❌ ${this.errors.length} erreur(s):`);
-      this.errors.forEach(error => {
+      this.errors.forEach((error, index) => {
         const fieldInfo = error.field ? ` [${error.field}]` : '';
-        console.log(`     - ${error.message}${fieldInfo}`);
+        console.log(`     ${index + 1}. ${error.message}${fieldInfo}`);
       });
     }
     
-    // Afficher les avertissements
     if (this.warnings.length > 0) {
       console.log(`  ⚠️  ${this.warnings.length} avertissement(s):`);
-      this.warnings.forEach(warning => {
+      this.warnings.forEach((warning, index) => {
         const fieldInfo = warning.field ? ` [${warning.field}]` : '';
-        console.log(`     - ${warning.message}${fieldInfo}`);
+        console.log(`     ${index + 1}. ${warning.message}${fieldInfo}`);
       });
     }
   }
@@ -141,26 +139,53 @@ async function fileExists(filePath) {
 }
 
 /**
- * Valide les métadonnées de base d'une formation
+ * Valide la structure et syntaxe du fichier Markdown
  */
-function validateMetadata(data, result) {
+function validateFileStructure(fileContent, result) {
+  try {
+    const { data, content } = matter(fileContent);
+    
+    if (!data || Object.keys(data).length === 0) {
+      result.addError('Aucune métadonnée YAML trouvée (front matter manquant)');
+      return { frontMatter: {}, content: '' };
+    }
+    
+    if (!content || content.trim().length === 0) {
+      result.addError('Contenu Markdown vide');
+      return { frontMatter: data, content: '' };
+    }
+    
+    return { frontMatter: data, content };
+    
+  } catch (error) {
+    result.addError(`Erreur de parsing du fichier: ${error.message}`);
+    return { frontMatter: {}, content: '' };
+  }
+}
+
+/**
+ * Valide les métadonnées de base
+ */
+function validateBasicMetadata(data, result) {
   const { title, type, duration, instructor, company, version, last_updated } = data;
   
-  // Validation du titre
-  if (!title || typeof title !== 'string') {
-    result.addError('Le titre est obligatoire et doit être une chaîne de caractères', 'title');
+  // Titre
+  if (!title) {
+    result.addError('Le titre est obligatoire', 'title');
+  } else if (typeof title !== 'string') {
+    result.addError('Le titre doit être une chaîne de caractères', 'title');
   } else if (title.length > VALIDATION_RULES.limits.titleMaxLength) {
-    result.addWarning(`Le titre est trop long (${title.length} caractères, max ${VALIDATION_RULES.limits.titleMaxLength})`, 'title');
+    result.addWarning(`Titre trop long (${title.length} caractères, max ${VALIDATION_RULES.limits.titleMaxLength})`, 'title');
   }
   
-  // Validation du type
+  // Type
   if (!type) {
     result.addError('Le type de formation est obligatoire', 'type');
   } else if (!VALIDATION_RULES.validTypes.includes(type)) {
     result.addError(`Type invalide: "${type}". Types valides: ${VALIDATION_RULES.validTypes.join(', ')}`, 'type');
   }
   
-  // Validation de la durée
+  // Durée
   if (!duration) {
     result.addError('La durée est obligatoire', 'duration');
   } else if (typeof duration !== 'number' || duration <= 0) {
@@ -174,32 +199,40 @@ function validateMetadata(data, result) {
     }
   }
   
-  // Validation de l'instructeur
-  if (!instructor || typeof instructor !== 'string') {
+  // Instructeur
+  if (!instructor) {
     result.addError('Le nom de l\'instructeur est obligatoire', 'instructor');
+  } else if (typeof instructor !== 'string') {
+    result.addError('Le nom de l\'instructeur doit être une chaîne de caractères', 'instructor');
   }
   
-  // Validation de l'entreprise
-  if (!company || typeof company !== 'string') {
+  // Optionnels avec avertissements
+  if (!company) {
     result.addWarning('Le nom de l\'entreprise est recommandé', 'company');
   }
   
-  // Validation de la version
-  if (version && typeof version !== 'string') {
-    result.addWarning('La version doit être une chaîne de caractères', 'version');
+  if (!version) {
+    result.addWarning('Un numéro de version est recommandé', 'version');
   }
   
-  // Validation de la date de mise à jour
+  // Validation de la date
   if (last_updated) {
     const date = new Date(last_updated);
     if (isNaN(date.getTime())) {
       result.addWarning('Format de date invalide pour last_updated (utilisez YYYY-MM-DD)', 'last_updated');
     }
+  } else {
+    result.addWarning('Date de dernière mise à jour recommandée', 'last_updated');
   }
   
   // Validation de la difficulté
   if (data.difficulty && !VALIDATION_RULES.validDifficulties.includes(data.difficulty)) {
     result.addError(`Niveau de difficulté invalide: "${data.difficulty}". Niveaux valides: ${VALIDATION_RULES.validDifficulties.join(', ')}`, 'difficulty');
+  }
+  
+  // Validation du thème
+  if (data.theme && !VALIDATION_RULES.validThemes.includes(data.theme)) {
+    result.addWarning(`Thème non reconnu: "${data.theme}". Thèmes disponibles: ${VALIDATION_RULES.validThemes.join(', ')}`, 'theme');
   }
 }
 
@@ -213,7 +246,7 @@ function validateLearningObjectives(objectives, result) {
   }
   
   if (!Array.isArray(objectives)) {
-    result.addError('Les objectifs pédagogiques doivent être une liste', 'learning_objectives');
+    result.addError('Les objectifs pédagogiques doivent être un tableau', 'learning_objectives');
     return;
   }
   
@@ -223,10 +256,9 @@ function validateLearningObjectives(objectives, result) {
   }
   
   if (objectives.length > VALIDATION_RULES.limits.maxObjectives) {
-    result.addWarning(`Trop d'objectifs (${objectives.length}, max recommandé: ${VALIDATION_RULES.limits.maxObjectives})`, 'learning_objectives');
+    result.addWarning(`Beaucoup d'objectifs (${objectives.length}, max recommandé: ${VALIDATION_RULES.limits.maxObjectives})`, 'learning_objectives');
   }
   
-  // Vérifier chaque objectif
   objectives.forEach((objective, index) => {
     if (!objective || typeof objective !== 'string') {
       result.addError(`L'objectif ${index + 1} doit être une chaîne de caractères non vide`, 'learning_objectives');
@@ -241,20 +273,19 @@ function validateLearningObjectives(objectives, result) {
  */
 function validatePrerequisites(prerequisites, result) {
   if (!prerequisites) {
-    result.addWarning('Les prérequis sont recommandés pour une meilleure compréhension', 'prerequisites');
+    result.addWarning('Les prérequis sont recommandés', 'prerequisites');
     return;
   }
   
   if (!Array.isArray(prerequisites)) {
-    result.addError('Les prérequis doivent être une liste', 'prerequisites');
+    result.addError('Les prérequis doivent être un tableau', 'prerequisites');
     return;
   }
   
   if (prerequisites.length > VALIDATION_RULES.limits.maxPrerequisites) {
-    result.addWarning(`Trop de prérequis (${prerequisites.length}, max recommandé: ${VALIDATION_RULES.limits.maxPrerequisites})`, 'prerequisites');
+    result.addWarning(`Beaucoup de prérequis (${prerequisites.length}, max recommandé: ${VALIDATION_RULES.limits.maxPrerequisites})`, 'prerequisites');
   }
   
-  // Vérifier chaque prérequis
   prerequisites.forEach((prerequisite, index) => {
     if (!prerequisite || typeof prerequisite !== 'string') {
       result.addError(`Le prérequis ${index + 1} doit être une chaîne de caractères non vide`, 'prerequisites');
@@ -267,38 +298,41 @@ function validatePrerequisites(prerequisites, result) {
  */
 async function validateResources(resources, result) {
   if (!resources) {
-    result.addWarning('Aucune ressource multimédia définie', 'resources');
+    result.addWarning('Aucune ressource multimédia définie - recommandé pour enrichir la formation', 'resources');
     return;
   }
+  
+  result.stats.hasResources = true;
   
   // Validation des vidéos
   if (resources.videos) {
     if (!Array.isArray(resources.videos)) {
-      result.addError('Les vidéos doivent être une liste', 'resources.videos');
+      result.addError('La section videos doit être un tableau', 'resources.videos');
     } else {
       for (let i = 0; i < resources.videos.length; i++) {
         const video = resources.videos[i];
-        if (!video.title || !video.file) {
-          result.addError(`Vidéo ${i + 1}: titre et fichier sont obligatoires`, 'resources.videos');
+        
+        if (!video.title) {
+          result.addError(`Vidéo ${i + 1}: le titre est obligatoire`, 'resources.videos');
+        }
+        
+        if (!video.file) {
+          result.addError(`Vidéo ${i + 1}: le nom de fichier est obligatoire`, 'resources.videos');
         } else {
-          // Vérifier l'extension
           const ext = path.extname(video.file).toLowerCase();
-          if (!VALIDATION_RULES.validMediaExtensions.videos.includes(ext)) {
-            result.addWarning(`Vidéo ${i + 1}: extension "${ext}" non recommandée. Extensions recommandées: ${VALIDATION_RULES.validMediaExtensions.videos.join(', ')}`, 'resources.videos');
+          if (!VALIDATION_RULES.validExtensions.videos.includes(ext)) {
+            result.addWarning(`Vidéo ${i + 1}: extension "${ext}" non optimale. Recommandées: ${VALIDATION_RULES.validExtensions.videos.join(', ')}`, 'resources.videos');
           }
           
           // Vérifier l'existence du fichier
           const videoPath = path.join(ASSETS_DIR, 'videos', video.file);
           if (!(await fileExists(videoPath))) {
-            result.addError(`Vidéo ${i + 1}: fichier "${video.file}" introuvable dans assets/videos/`, 'resources.videos');
+            result.addWarning(`Vidéo ${i + 1}: fichier "${video.file}" non trouvé dans assets/videos/`, 'resources.videos');
           }
         }
         
-        // Validation de la durée si présente
-        if (video.duration) {
-          if (!/^\d+min$/.test(video.duration)) {
-            result.addWarning(`Vidéo ${i + 1}: format de durée recommandé: "Xmin" (ex: "15min")`, 'resources.videos');
-          }
+        if (video.duration && !/^\d+min$/.test(video.duration)) {
+          result.addWarning(`Vidéo ${i + 1}: format de durée recommandé: "Xmin"`, 'resources.videos');
         }
       }
     }
@@ -307,23 +341,26 @@ async function validateResources(resources, result) {
   // Validation des documents
   if (resources.documents) {
     if (!Array.isArray(resources.documents)) {
-      result.addError('Les documents doivent être une liste', 'resources.documents');
+      result.addError('La section documents doit être un tableau', 'resources.documents');
     } else {
       for (let i = 0; i < resources.documents.length; i++) {
         const doc = resources.documents[i];
-        if (!doc.title || !doc.file) {
-          result.addError(`Document ${i + 1}: titre et fichier sont obligatoires`, 'resources.documents');
+        
+        if (!doc.title) {
+          result.addError(`Document ${i + 1}: le titre est obligatoire`, 'resources.documents');
+        }
+        
+        if (!doc.file) {
+          result.addError(`Document ${i + 1}: le nom de fichier est obligatoire`, 'resources.documents');
         } else {
-          // Vérifier l'extension
           const ext = path.extname(doc.file).toLowerCase();
-          if (!VALIDATION_RULES.validMediaExtensions.documents.includes(ext)) {
-            result.addWarning(`Document ${i + 1}: extension "${ext}" non recommandée`, 'resources.documents');
+          if (!VALIDATION_RULES.validExtensions.documents.includes(ext)) {
+            result.addWarning(`Document ${i + 1}: extension "${ext}" non reconnue`, 'resources.documents');
           }
           
-          // Vérifier l'existence du fichier
           const docPath = path.join(ASSETS_DIR, 'documents', doc.file);
           if (!(await fileExists(docPath))) {
-            result.addError(`Document ${i + 1}: fichier "${doc.file}" introuvable dans assets/documents/`, 'resources.documents');
+            result.addWarning(`Document ${i + 1}: fichier "${doc.file}" non trouvé dans assets/documents/`, 'resources.documents');
           }
         }
       }
@@ -333,13 +370,16 @@ async function validateResources(resources, result) {
   // Validation des liens
   if (resources.links) {
     if (!Array.isArray(resources.links)) {
-      result.addError('Les liens doivent être une liste', 'resources.links');
+      result.addError('La section links doit être un tableau', 'resources.links');
     } else {
       resources.links.forEach((link, index) => {
-        if (!link.title || !link.url) {
-          result.addError(`Lien ${index + 1}: titre et URL sont obligatoires`, 'resources.links');
+        if (!link.title) {
+          result.addError(`Lien ${index + 1}: le titre est obligatoire`, 'resources.links');
+        }
+        
+        if (!link.url) {
+          result.addError(`Lien ${index + 1}: l'URL est obligatoire`, 'resources.links');
         } else {
-          // Validation basique de l'URL
           try {
             new URL(link.url);
           } catch {
@@ -354,72 +394,87 @@ async function validateResources(resources, result) {
 /**
  * Valide les données spécifiques aux équipements
  */
-function validateEquipmentData(equipment, result) {
-  if (!equipment) {
-    result.addError('Les données d\'équipement sont obligatoires pour le type "equipment"', 'equipment');
+function validateEquipmentData(equipment, result, formationType) {
+  if (formationType !== 'equipment') {
     return;
   }
   
-  // Champs obligatoires pour équipement
+  if (!equipment) {
+    result.addError('Les données equipment sont obligatoires pour le type "equipment"', 'equipment');
+    return;
+  }
+  
   if (!equipment.name) {
-    result.addError('Le nom de l\'équipement est obligatoire', 'equipment.name');
+    result.addError('Le nom de l\'équipement (equipment.name) est obligatoire', 'equipment.name');
   }
   
   if (!equipment.manufacturer) {
-    result.addError('Le fabricant de l\'équipement est obligatoire', 'equipment.manufacturer');
+    result.addError('Le fabricant (equipment.manufacturer) est obligatoire', 'equipment.manufacturer');
   }
   
   if (!equipment.model) {
-    result.addWarning('Le modèle de l\'équipement est recommandé', 'equipment.model');
+    result.addWarning('Le modèle de l\'équipement est fortement recommandé', 'equipment.model');
   }
   
-  // Validation de l'image
   if (equipment.image) {
     const ext = path.extname(equipment.image).toLowerCase();
-    if (!VALIDATION_RULES.validMediaExtensions.images.includes(ext)) {
-      result.addWarning(`Extension d'image non recommandée: "${ext}"`, 'equipment.image');
+    if (!VALIDATION_RULES.validExtensions.images.includes(ext)) {
+      result.addWarning(`Extension d'image non optimale: "${ext}"`, 'equipment.image');
     }
   } else {
-    result.addWarning('Une image de l\'équipement est recommandée', 'equipment.image');
+    result.addWarning('Une image de l\'équipement améliorerait la formation', 'equipment.image');
   }
   
-  // Validation des spécifications
   if (equipment.specs && typeof equipment.specs !== 'object') {
-    result.addError('Les spécifications doivent être un objet', 'equipment.specs');
+    result.addError('Les spécifications (equipment.specs) doivent être un objet', 'equipment.specs');
+  } else if (!equipment.specs) {
+    result.addWarning('Les spécifications techniques sont recommandées', 'equipment.specs');
   }
 }
 
 /**
  * Valide l'évaluation
  */
-function validateAssessment(assessment, result) {
+function validateAssessment(assessment, result, formationType) {
   if (!assessment) {
-    result.addWarning('Aucune évaluation définie', 'assessment');
+    if (formationType === 'safety') {
+      result.addError('Une évaluation est obligatoire pour les formations de sécurité', 'assessment');
+    } else {
+      result.addWarning('Une évaluation est recommandée', 'assessment');
+    }
     return;
   }
   
+  result.stats.hasAssessment = true;
+  
   // Validation des poids
   if (assessment.practical_weight !== undefined && assessment.theory_weight !== undefined) {
-    const total = assessment.practical_weight + assessment.theory_weight;
-    if (total !== 100) {
-      result.addError(`Les poids pratique et théorique doivent totaliser 100% (actuellement: ${total}%)`, 'assessment');
+    if (typeof assessment.practical_weight !== 'number' || typeof assessment.theory_weight !== 'number') {
+      result.addError('Les poids doivent être des nombres', 'assessment');
+    } else {
+      const total = assessment.practical_weight + assessment.theory_weight;
+      if (total !== 100) {
+        result.addError(`Les poids doivent totaliser 100% (actuellement: ${total}%)`, 'assessment');
+      }
     }
   }
   
   // Validation de la note de passage
-  if (assessment.passing_grade) {
+  if (assessment.passing_grade !== undefined) {
     if (typeof assessment.passing_grade !== 'number' || assessment.passing_grade < 0 || assessment.passing_grade > 100) {
       result.addError('La note de passage doit être un nombre entre 0 et 100', 'assessment.passing_grade');
+    } else if (formationType === 'safety' && assessment.passing_grade < 100) {
+      result.addWarning('Les formations de sécurité nécessitent généralement 100% de réussite', 'assessment.passing_grade');
     }
   }
   
   // Validation des exercices
-  if (assessment.exercises) {
-    if (!Array.isArray(assessment.exercises)) {
-      result.addError('Les exercices doivent être une liste', 'assessment.exercises');
-    } else if (assessment.exercises.length === 0) {
-      result.addWarning('Aucun exercice d\'évaluation défini', 'assessment.exercises');
-    }
+  if (!assessment.exercises) {
+    result.addWarning('Des exercices d\'évaluation sont recommandés', 'assessment.exercises');
+  } else if (!Array.isArray(assessment.exercises)) {
+    result.addError('Les exercices doivent être un tableau', 'assessment.exercises');
+  } else if (assessment.exercises.length === 0) {
+    result.addWarning('Au moins un exercice d\'évaluation est recommandé', 'assessment.exercises');
   }
 }
 
@@ -432,35 +487,34 @@ function validateContent(content, result) {
     return;
   }
   
-  // Compter les modules (titres H1)
+  const wordCount = content.split(/\s+/).filter(word => word.length > 0).length;
+  result.stats.wordCount = wordCount;
+  
+  if (wordCount < VALIDATION_RULES.limits.minWords) {
+    result.addWarning(`Contenu très court (${wordCount} mots, minimum recommandé: ${VALIDATION_RULES.limits.minWords})`, 'content');
+  }
+  
+  // Compter les modules (titres H1 qui ne sont pas des séparateurs)
   const moduleMatches = content.match(/^# [^=]/gm);
   const moduleCount = moduleMatches ? moduleMatches.length : 0;
+  result.stats.moduleCount = moduleCount;
   
   if (moduleCount < VALIDATION_RULES.limits.minModules) {
-    result.addError(`Trop peu de modules (${moduleCount}, minimum: ${VALIDATION_RULES.limits.minModules})`, 'content');
+    result.addError(`Aucun module trouvé. Utilisez des titres H1 (# Titre) pour structurer votre formation`, 'content');
   } else if (moduleCount > VALIDATION_RULES.limits.maxModules) {
-    result.addWarning(`Beaucoup de modules (${moduleCount}, maximum recommandé: ${VALIDATION_RULES.limits.maxModules})`, 'content');
+    result.addWarning(`Beaucoup de modules (${moduleCount}, max recommandé: ${VALIDATION_RULES.limits.maxModules})`, 'content');
   }
   
-  // Vérifier la présence de contenu substantiel
-  const wordCount = content.split(/\s+/).length;
-  if (wordCount < 100) {
-    result.addWarning(`Contenu très court (${wordCount} mots)`, 'content');
+  // Vérifier la présence d'exercices pratiques
+  const exerciseMatches = content.match(/exercice\s+pratique/gi);
+  if (!exerciseMatches || exerciseMatches.length === 0) {
+    result.addWarning('Aucun exercice pratique détecté - recommandé pour l\'apprentissage actif', 'content');
   }
   
-  // Vérifier les liens internes
-  const internalLinks = content.match(/\[([^\]]+)\]\(([^)]+)\)/g);
-  if (internalLinks) {
-    internalLinks.forEach(link => {
-      const match = link.match(/\[([^\]]+)\]\(([^)]+)\)/);
-      if (match) {
-        const url = match[2];
-        // Vérifier les liens vers des fichiers locaux
-        if (!url.startsWith('http') && !url.startsWith('#') && !url.startsWith('mailto:')) {
-          result.addWarning(`Lien interne détecté: vérifiez que le fichier "${url}" existe`, 'content');
-        }
-      }
-    });
+  // Vérifier les callouts de sécurité pour certains types
+  const safetyCallouts = content.match(/⚠️|🚨|🛡️/g);
+  if (!safetyCallouts) {
+    result.addWarning('Aucun callout de sécurité détecté - important pour les formations techniques', 'content');
   }
 }
 
@@ -472,49 +526,28 @@ async function validateFormation(filePath) {
   const result = new ValidationResult(filename);
   
   try {
-    // Lire et parser le fichier
     const fileContent = await fs.readFile(filePath, 'utf8');
-    const { data: frontMatter, content } = matter(fileContent);
+    const { frontMatter, content } = validateFileStructure(fileContent, result);
     
-    // Validations générales
-    validateMetadata(frontMatter, result);
+    if (result.errors.length > 0) {
+      return result; // Erreurs critiques, arrêter la validation
+    }
+    
+    // Validations des métadonnées
+    validateBasicMetadata(frontMatter, result);
     validateLearningObjectives(frontMatter.learning_objectives, result);
     validatePrerequisites(frontMatter.prerequisites, result);
     await validateResources(frontMatter.resources, result);
-    validateAssessment(frontMatter.assessment, result);
+    validateEquipmentData(frontMatter.equipment, result, frontMatter.type);
+    validateAssessment(frontMatter.assessment, result, frontMatter.type);
+    
+    // Validation du contenu
     validateContent(content, result);
     
-    // Validations spécifiques au type
-    switch (frontMatter.type) {
-      case 'equipment':
-        validateEquipmentData(frontMatter.equipment, result);
-        break;
-      case 'safety':
-        if (!frontMatter.assessment) {
-          result.addError('Une évaluation est obligatoire pour les formations de sécurité', 'assessment');
-        }
-        break;
-      case 'skills':
-        if (!frontMatter.difficulty) {
-          result.addWarning('Le niveau de difficulté est recommandé pour les formations de compétences', 'difficulty');
-        }
-        break;
+    // Validations spécifiques par type
+    if (frontMatter.type === 'skills' && !frontMatter.difficulty) {
+      result.addWarning('Le niveau de difficulté est fortement recommandé pour les formations de compétences', 'difficulty');
     }
-    
-    // Validation des champs obligatoires spécifiques au type
-    const requiredForType = VALIDATION_RULES.requiredFields[frontMatter.type] || [];
-    requiredForType.forEach(field => {
-      const fieldPath = field.split('.');
-      let value = frontMatter;
-      
-      for (const key of fieldPath) {
-        value = value?.[key];
-      }
-      
-      if (value === undefined || value === null || value === '') {
-        result.addError(`Champ obligatoire manquant pour le type "${frontMatter.type}": ${field}`, field);
-      }
-    });
     
   } catch (error) {
     result.addError(`Erreur lors de la lecture du fichier: ${error.message}`, 'file');
@@ -524,29 +557,92 @@ async function validateFormation(filePath) {
 }
 
 /**
- * Génère un rapport de validation
+ * Génère un rapport de validation détaillé
  */
 function generateValidationReport(results) {
+  const validResults = results.filter(r => r.isValid);
+  const invalidResults = results.filter(r => !r.isValid);
+  
+  // Analyse des erreurs les plus fréquentes
+  const errorFrequency = {};
+  const warningFrequency = {};
+  
+  results.forEach(result => {
+    result.errors.forEach(error => {
+      const key = error.field || 'general';
+      errorFrequency[key] = (errorFrequency[key] || 0) + 1;
+    });
+    
+    result.warnings.forEach(warning => {
+      const key = warning.field || 'general';
+      warningFrequency[key] = (warningFrequency[key] || 0) + 1;
+    });
+  });
+  
   const report = {
     timestamp: new Date().toISOString(),
+    generatorVersion: '1.0.0',
+    
     summary: {
-      totalFiles: validationStats.totalFiles,
-      validFiles: validationStats.validFiles,
-      invalidFiles: validationStats.invalidFiles,
-      totalErrors: validationStats.totalErrors,
-      totalWarnings: validationStats.totalWarnings,
-      successRate: Math.round((validationStats.validFiles / validationStats.totalFiles) * 100)
+      totalFiles: globalStats.totalFiles,
+      validFiles: globalStats.validFiles,
+      invalidFiles: globalStats.invalidFiles,
+      totalErrors: globalStats.totalErrors,
+      totalWarnings: globalStats.totalWarnings,
+      successRate: Math.round((globalStats.validFiles / globalStats.totalFiles) * 100),
+      processingTime: globalStats.processingTime
     },
-    errorsByType: validationStats.errorsByType,
-    warningsByType: validationStats.warningsByType,
-    details: results.map(result => ({
+    
+    statistics: {
+      errorsByField: Object.entries(errorFrequency)
+        .sort(([,a], [,b]) => b - a)
+        .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {}),
+      warningsByField: Object.entries(warningFrequency)
+        .sort(([,a], [,b]) => b - a)
+        .reduce((obj, [key, value]) => ({ ...obj, [key]: value }), {}),
+      averageModules: validResults.length > 0 ? 
+        Math.round(validResults.reduce((sum, r) => sum + r.stats.moduleCount, 0) / validResults.length) : 0,
+      averageWords: validResults.length > 0 ? 
+        Math.round(validResults.reduce((sum, r) => sum + r.stats.wordCount, 0) / validResults.length) : 0
+    },
+    
+    recommendations: [],
+    
+    files: results.map(result => ({
       filename: result.filename,
       isValid: result.isValid,
       errorCount: result.errors.length,
       warningCount: result.warnings.length,
+      stats: result.stats,
       issues: [...result.errors, ...result.warnings]
     }))
   };
+  
+  // Générer des recommandations
+  if (report.summary.totalErrors > 0) {
+    const topErrors = Object.entries(errorFrequency).slice(0, 3);
+    report.recommendations.push({
+      type: 'error',
+      priority: 'high',
+      message: `Erreurs les plus fréquentes: ${topErrors.map(([field, count]) => `${field} (${count})`).join(', ')}`
+    });
+  }
+  
+  if (report.summary.totalWarnings > 0) {
+    report.recommendations.push({
+      type: 'improvement',
+      priority: 'medium',
+      message: 'Ajoutez des ressources multimédias et des exercices pratiques pour enrichir vos formations'
+    });
+  }
+  
+  if (report.summary.successRate < 100) {
+    report.recommendations.push({
+      type: 'quality',
+      priority: 'medium',
+      message: 'Consultez le guide de spécifications pour créer des formations conformes'
+    });
+  }
   
   return report;
 }
@@ -555,7 +651,8 @@ function generateValidationReport(results) {
  * Fonction principale de validation
  */
 async function main() {
-  console.log('🔍 Validation des formations...\n');
+  const startTime = Date.now();
+  console.log('🔍 Démarrage de la validation des formations...\n');
   
   try {
     // Rechercher tous les fichiers Markdown
@@ -563,73 +660,89 @@ async function main() {
     
     if (formationFiles.length === 0) {
       console.log('⚠️  Aucun fichier de formation trouvé dans ./formations/');
+      console.log('   💡 Créez vos formations en format .md dans ce dossier');
+      console.log('   📖 Consultez le guide des spécifications pour le format requis');
       return;
     }
     
-    validationStats.totalFiles = formationFiles.length;
+    globalStats.totalFiles = formationFiles.length;
     console.log(`📚 Validation de ${formationFiles.length} formation(s)...\n`);
     
     // Valider chaque formation
     const results = [];
     for (const filePath of formationFiles) {
+      console.log(`🔍 Validation: ${path.basename(filePath)}`);
       const result = await validateFormation(filePath);
       results.push(result);
       
       if (result.isValid) {
-        validationStats.validFiles++;
+        globalStats.validFiles++;
       } else {
-        validationStats.invalidFiles++;
+        globalStats.invalidFiles++;
       }
       
       result.print();
     }
     
+    globalStats.processingTime = Date.now() - startTime;
+    
     // Générer le rapport
+    console.log('\n📊 Génération du rapport...');
     const report = generateValidationReport(results);
-    await fs.ensureDir('./public/generated');
-    await fs.writeJSON('./public/generated/validation-report.json', report, { spaces: 2 });
+    
+    await fs.ensureDir(GENERATED_DIR);
+    await fs.writeJSON(`${GENERATED_DIR}/validation-report.json`, report, { spaces: 2 });
     
     // Afficher le résumé
-    console.log('\n📊 Résumé de la validation:');
-    console.log(`   ✅ Fichiers valides: ${validationStats.validFiles}/${validationStats.totalFiles}`);
-    console.log(`   ❌ Fichiers avec erreurs: ${validationStats.invalidFiles}/${validationStats.totalFiles}`);
-    console.log(`   🔥 Total erreurs: ${validationStats.totalErrors}`);
-    console.log(`   ⚠️  Total avertissements: ${validationStats.totalWarnings}`);
-    console.log(`   📈 Taux de réussite: ${report.summary.successRate}%`);
+    console.log('\n' + '='.repeat(50));
+    console.log('📋 RÉSUMÉ DE LA VALIDATION');
+    console.log('='.repeat(50));
+    console.log(`✅ Fichiers valides: ${globalStats.validFiles}/${globalStats.totalFiles}`);
+    console.log(`❌ Fichiers avec erreurs: ${globalStats.invalidFiles}/${globalStats.totalFiles}`);
+    console.log(`🔥 Total erreurs: ${globalStats.totalErrors}`);
+    console.log(`⚠️  Total avertissements: ${globalStats.totalWarnings}`);
+    console.log(`📈 Taux de réussite: ${report.summary.successRate}%`);
+    console.log(`⏱️  Temps de traitement: ${Math.round(globalStats.processingTime / 1000)}s`);
     
-    if (validationStats.totalErrors > 0) {
+    if (Object.keys(report.statistics.errorsByField).length > 0) {
       console.log('\n❌ Erreurs les plus fréquentes:');
-      Object.entries(validationStats.errorsByType)
-        .sort(([,a], [,b]) => b - a)
-        .slice(0, 3)
-        .forEach(([type, count]) => {
-          console.log(`   - ${type}: ${count} erreur(s)`);
-        });
+      Object.entries(report.statistics.errorsByField).slice(0, 3).forEach(([field, count]) => {
+        console.log(`   - ${field}: ${count} erreur(s)`);
+      });
     }
     
-    if (validationStats.totalWarnings > 0) {
+    if (Object.keys(report.statistics.warningsByField).length > 0) {
       console.log('\n⚠️  Avertissements les plus fréquents:');
-      Object.entries(validationStats.warningsByType)
-        .sort(([,a], [,b]) => b - a)
-        .slice(0, 3)
-        .forEach(([type, count]) => {
-          console.log(`   - ${type}: ${count} avertissement(s)`);
-        });
+      Object.entries(report.statistics.warningsByField).slice(0, 3).forEach(([field, count]) => {
+        console.log(`   - ${field}: ${count} avertissement(s)`);
+      });
     }
     
-    console.log(`\n📄 Rapport détaillé sauvegardé: ./public/generated/validation-report.json`);
+    if (report.recommendations.length > 0) {
+      console.log('\n💡 Recommandations:');
+      report.recommendations.forEach((rec, index) => {
+        const icon = rec.type === 'error' ? '🔴' : rec.type === 'improvement' ? '🟡' : '🔵';
+        console.log(`   ${index + 1}. ${icon} ${rec.message}`);
+      });
+    }
+    
+    console.log(`\n📄 Rapport détaillé: ${GENERATED_DIR}/validation-report.json`);
+    
+    // Conseils pour la suite
+    if (globalStats.validFiles === globalStats.totalFiles) {
+      console.log('\n🎉 Toutes les formations sont valides!');
+      console.log('   ➡️  Vous pouvez maintenant lancer: npm run generate');
+    } else {
+      console.log('\n🔧 Corrigez les erreurs ci-dessus, puis relancez la validation');
+      console.log('   📖 Consultez le guide des spécifications pour plus d\'aide');
+    }
     
     // Code de sortie
-    if (validationStats.totalErrors > 0) {
-      console.log('\n💥 Validation échouée - Corrigez les erreurs avant de continuer');
-      process.exit(1);
-    } else {
-      console.log('\n✨ Validation réussie - Toutes les formations sont conformes!');
-      process.exit(0);
-    }
+    process.exit(globalStats.totalErrors > 0 ? 1 : 0);
     
   } catch (error) {
-    console.error('💥 Erreur fatale lors de la validation:', error.message);
+    console.error('\n💥 Erreur fatale lors de la validation:', error.message);
+    console.error(error.stack);
     process.exit(1);
   }
 }

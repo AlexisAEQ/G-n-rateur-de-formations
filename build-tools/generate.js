@@ -4,89 +4,191 @@ import { glob } from 'glob';
 import matter from 'gray-matter';
 import { marked } from 'marked';
 
-// Configuration des chemins
-const FORMATIONS_DIR = './formations';
-const PUBLIC_DIR = './public';
-const GENERATED_DIR = './public/generated';
-const SRC_DIR = './src';
+console.log('🚀 GÉNÉRATION AVANCÉE AVEC TOUS LES OUTILS');
 
-// Configuration du renderer Marked
+// ==========================================
+// CONFIGURATION DES OUTILS DISPONIBLES
+// ==========================================
+
+// Configuration Marked avec renderer personnalisé
 const renderer = new marked.Renderer();
 
-// Personnaliser le rendu des titres pour ajouter des IDs
+// Personnaliser les titres avec IDs pour la navigation
 renderer.heading = function(text, level) {
   const id = text.toLowerCase()
-    .replace(/[^\w\s-]/g, '') // Supprimer caractères spéciaux
-    .replace(/\s+/g, '-')     // Remplacer espaces par tirets
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
     .trim();
   
-  return `<h${level} id="${id}" class="heading-${level}">${text}</h${level}>`;
+  return `<h${level} id="${id}" class="heading-${level} text-${level === 1 ? '3xl' : level === 2 ? '2xl' : 'xl'} font-bold mb-4">${text}</h${level}>`;
 };
 
-// Personnaliser le rendu des liens
+// Personnaliser les liens avec classes Tailwind
 renderer.link = function(href, title, text) {
   const titleAttr = title ? ` title="${title}"` : '';
+  const isExternal = href.startsWith('http');
   
-  // Vérifier si c'est un lien externe
-  if (href.startsWith('http')) {
-    return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer" class="external-link">${text}</a>`;
+  if (isExternal) {
+    return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline external-link">${text}</a>`;
   }
   
-  return `<a href="${href}"${titleAttr} class="internal-link">${text}</a>`;
+  return `<a href="${href}"${titleAttr} class="text-blue-600 hover:text-blue-800 underline internal-link">${text}</a>`;
 };
 
-// Personnaliser le rendu des blockquotes
+// Personnaliser les blockquotes pour les callouts avec classes Tailwind
 renderer.blockquote = function(quote) {
-  // Détecter les types de blockquotes spéciaux
   if (quote.includes('📹')) {
-    return `<div class="video-callout">${quote}</div>`;
+    return `<div class="callout callout-video bg-purple-50 border-l-4 border-purple-400 p-4 my-4 rounded-r-lg">${quote}</div>`;
   } else if (quote.includes('⚠️')) {
-    return `<div class="warning-callout">${quote}</div>`;
+    return `<div class="callout callout-warning bg-yellow-50 border-l-4 border-yellow-400 p-4 my-4 rounded-r-lg">${quote}</div>`;
   } else if (quote.includes('💡')) {
-    return `<div class="tip-callout">${quote}</div>`;
+    return `<div class="callout callout-tip bg-blue-50 border-l-4 border-blue-400 p-4 my-4 rounded-r-lg">${quote}</div>`;
+  } else if (quote.includes('🔐')) {
+    return `<div class="callout callout-safety bg-red-50 border-l-4 border-red-400 p-4 my-4 rounded-r-lg">${quote}</div>`;
   }
   
-  return `<blockquote class="standard-quote">${quote}</blockquote>`;
+  return `<blockquote class="border-l-4 border-gray-300 pl-4 italic text-gray-600 my-4">${quote}</blockquote>`;
 };
 
-// Configuration Marked
+// Personnaliser les listes avec classes Tailwind
+renderer.list = function(body, ordered) {
+  const tag = ordered ? 'ol' : 'ul';
+  const classes = ordered ? 'list-decimal list-inside space-y-2' : 'list-disc list-inside space-y-2';
+  return `<${tag} class="${classes} text-gray-700 mb-4">${body}</${tag}>`;
+};
+
+// Personnaliser les éléments de liste
+renderer.listitem = function(text) {
+  return `<li class="mb-1">${text}</li>`;
+};
+
+// Configuration Marked avec toutes les options
 marked.setOptions({
   renderer: renderer,
-  highlight: function(code, lang) {
-    // Ici on pourrait intégrer Prism.js pour la coloration syntaxique
-    return `<pre><code class="language-${lang || 'text'}">${code}</code></pre>`;
-  },
   pedantic: false,
   gfm: true,
   breaks: false,
   sanitize: false,
-  smartypants: false,
+  smartypants: true,
   xhtml: false
 });
 
-/**
- * Extrait les modules d'une formation basée sur les titres H1
- */
-function extractModules(content, frontMatter) {
+// ==========================================
+// TEMPLATES ET COMPOSANTS DISPONIBLES
+// ==========================================
+
+const TEMPLATES = {
+  equipment: {
+    name: 'EquipmentTemplate',
+    features: ['specs', 'safety', 'maintenance', 'troubleshooting'],
+    requiredFields: ['equipment.name', 'equipment.manufacturer'],
+    defaultSections: ['overview', 'safety', 'operation', 'maintenance', 'evaluation']
+  },
+  skills: {
+    name: 'SkillsTemplate',
+    features: ['progression', 'exercises', 'assessment', 'certification'],
+    requiredFields: ['difficulty', 'learning_objectives'],
+    defaultSections: ['introduction', 'content', 'practice', 'evaluation']
+  },
+  safety: {
+    name: 'SafetyTemplate',
+    features: ['procedures', 'risks', 'emergency', 'certification'],
+    requiredFields: ['assessment'],
+    defaultSections: ['risks', 'procedures', 'emergency', 'certification']
+  },
+  general: {
+    name: 'GeneralTemplate',
+    features: ['content', 'resources', 'evaluation'],
+    requiredFields: [],
+    defaultSections: ['introduction', 'content', 'conclusion']
+  }
+};
+
+const COMPONENTS = {
+  'FormationLayout': { props: ['title', 'type', 'modules', 'navigation'] },
+  'ModuleCard': { props: ['module', 'index', 'completed'] },
+  'ProgressTracker': { props: ['currentModule', 'totalModules', 'completion'] },
+  'VideoPlayer': { props: ['src', 'title', 'duration'] },
+  'QuizSection': { props: ['questions', 'passingGrade'] },
+  'ResourceList': { props: ['videos', 'documents', 'links'] },
+  'SafetyChecklist': { props: ['items', 'required'] },
+  'EquipmentSpecs': { props: ['specifications', 'images'] },
+  'ExerciseBlock': { props: ['title', 'instructions', 'timeAllowed', 'materials'] }
+};
+
+// ==========================================
+// FONCTIONS UTILITAIRES AVANCÉES
+// ==========================================
+
+function detectFormationType(frontMatter, content) {
+  // Détection intelligente du type basée sur le contenu
+  if (frontMatter.type) return frontMatter.type;
+  
+  if (frontMatter.equipment || content.includes('équipement') || content.includes('robot')) {
+    return 'equipment';
+  }
+  
+  if (content.includes('sécurité') || content.includes('danger') || content.includes('risque')) {
+    return 'safety';
+  }
+  
+  if (frontMatter.difficulty || content.includes('compétence') || content.includes('apprentissage')) {
+    return 'skills';
+  }
+  
+  return 'general';
+}
+
+function generateComponentMapping(formation) {
+  const type = formation.type;
+  const template = TEMPLATES[type];
+  
+  return {
+    template: template.name,
+    layout: 'FormationLayout',
+    components: {
+      navigation: 'ProgressTracker',
+      modules: formation.modules.map(module => ({
+        component: 'ModuleCard',
+        props: {
+          module: module,
+          type: type
+        }
+      })),
+      resources: formation.resources ? 'ResourceList' : null,
+      assessment: formation.assessment ? 'QuizSection' : null,
+      equipment: (type === 'equipment' && formation.equipment) ? 'EquipmentSpecs' : null
+    },
+    features: template.features,
+    sections: template.defaultSections
+  };
+}
+
+function extractAdvancedModules(content) {
   const modules = [];
   const lines = content.split('\n');
   let currentModule = null;
   let currentContent = [];
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     
-    // Détecter un nouveau module (titre H1)
     if (line.startsWith('# ') && !line.includes('===')) {
       // Sauvegarder le module précédent
       if (currentModule) {
-        currentModule.content = currentContent.join('\n').trim();
-        currentModule.htmlContent = marked(currentModule.content);
+        const processedContent = currentContent.join('\n').trim();
+        currentModule.content = processedContent;
+        currentModule.htmlContent = marked(processedContent);
+        currentModule.components = extractModuleComponents(processedContent);
+        currentModule.estimatedDuration = calculateDuration(processedContent);
         modules.push(currentModule);
       }
       
-      // Créer un nouveau module
-      const title = line.replace('# ', '').trim();
+      // Nouveau module
+      const titleWithEmoji = line.replace('# ', '').trim();
+      const title = titleWithEmoji.replace(/^[🤖⚙️🎯🛡️📚🔧🔍📝📊✅🚨]+\s*/, '').trim();
+      const emoji = titleWithEmoji.match(/^[🤖⚙️🎯🛡️📚🔧🔍📝📊✅🚨]+/)?.[0] || '📄';
+      
       const id = title.toLowerCase()
         .replace(/[^\w\s-]/g, '')
         .replace(/\s+/g, '-')
@@ -95,10 +197,14 @@ function extractModules(content, frontMatter) {
       currentModule = {
         id: id,
         title: title,
+        titleWithEmoji: titleWithEmoji,
+        emoji: emoji,
         order: modules.length + 1,
         content: '',
         htmlContent: '',
-        estimatedDuration: estimateReadingTime(currentContent.join('\n'))
+        components: [],
+        estimatedDuration: 0,
+        type: detectModuleType(titleWithEmoji, i, lines)
       };
       
       currentContent = [];
@@ -109,366 +215,347 @@ function extractModules(content, frontMatter) {
   
   // Ajouter le dernier module
   if (currentModule) {
-    currentModule.content = currentContent.join('\n').trim();
-    currentModule.htmlContent = marked(currentModule.content);
-    currentModule.estimatedDuration = estimateReadingTime(currentModule.content);
+    const processedContent = currentContent.join('\n').trim();
+    currentModule.content = processedContent;
+    currentModule.htmlContent = marked(processedContent);
+    currentModule.components = extractModuleComponents(processedContent);
+    currentModule.estimatedDuration = calculateDuration(processedContent);
     modules.push(currentModule);
   }
   
   return modules;
 }
 
-/**
- * Estime le temps de lecture d'un contenu
- */
-function estimateReadingTime(content) {
-  const wordsPerMinute = 200;
+function detectModuleType(title, lineIndex, allLines) {
+  const titleLower = title.toLowerCase();
+  
+  if (titleLower.includes('sécurité') || titleLower.includes('safety') || title.includes('🛡️')) {
+    return 'safety';
+  }
+  if (titleLower.includes('évaluation') || titleLower.includes('test') || title.includes('📝')) {
+    return 'assessment';
+  }
+  if (titleLower.includes('pratique') || titleLower.includes('exercice') || title.includes('🎯')) {
+    return 'practice';
+  }
+  if (titleLower.includes('introduction') || titleLower.includes('présentation')) {
+    return 'introduction';
+  }
+  
+  return 'content';
+}
+
+function extractModuleComponents(content) {
+  const components = [];
+  
+  // Détecter les vidéos
+  if (content.includes('📹') || content.includes('Vidéo')) {
+    components.push({ type: 'VideoPlayer', detected: true });
+  }
+  
+  // Détecter les exercices
+  if (content.includes('Exercice Pratique') || content.includes('Instructions')) {
+    components.push({ type: 'ExerciseBlock', detected: true });
+  }
+  
+  // Détecter les checklists
+  if (content.match(/- \[[ x]\]/)) {
+    components.push({ type: 'SafetyChecklist', detected: true });
+  }
+  
+  // Détecter les callouts
+  if (content.includes('⚠️') || content.includes('💡') || content.includes('🔐')) {
+    components.push({ type: 'CalloutBox', detected: true });
+  }
+  
+  return components;
+}
+
+function calculateDuration(content) {
   const words = content.split(/\s+/).length;
-  const minutes = Math.ceil(words / wordsPerMinute);
-  return Math.max(1, minutes); // Minimum 1 minute
+  const readingTime = Math.ceil(words / 200); // 200 mots/minute
+  
+  // Ajouter du temps pour les éléments interactifs
+  let interactiveTime = 0;
+  
+  // Exercices pratiques
+  const exercises = (content.match(/Exercice\s+Pratique/gi) || []).length;
+  interactiveTime += exercises * 10; // 10 min par exercice
+  
+  // Vidéos (extraire la durée si mentionnée)
+  const videoMatches = content.match(/(\d+)min/g);
+  if (videoMatches) {
+    videoMatches.forEach(match => {
+      const minutes = parseInt(match.replace('min', ''));
+      interactiveTime += minutes;
+    });
+  }
+  
+  // Temps pour les callouts et réflexion
+  const callouts = (content.match(/[📹⚠️💡🔐]/g) || []).length;
+  interactiveTime += callouts * 2; // 2 min par callout
+  
+  return Math.max(readingTime + interactiveTime, 5); // Minimum 5 minutes
 }
 
-/**
- * Valide les métadonnées d'une formation
- */
-function validateFormationData(data, filename) {
-  const errors = [];
-  const required = ['title', 'type', 'duration', 'instructor'];
-  
-  required.forEach(field => {
-    if (!data[field]) {
-      errors.push(`Champ requis manquant: ${field}`);
-    }
-  });
-  
-  // Validation du type
-  const validTypes = ['equipment', 'skills', 'safety', 'general'];
-  if (data.type && !validTypes.includes(data.type)) {
-    errors.push(`Type invalide: ${data.type}. Types valides: ${validTypes.join(', ')}`);
-  }
-  
-  // Validation de la durée
-  if (data.duration && (typeof data.duration !== 'number' || data.duration <= 0)) {
-    errors.push('La durée doit être un nombre positif (en minutes)');
-  }
-  
-  // Validation des ressources
-  if (data.resources) {
-    if (data.resources.videos) {
-      data.resources.videos.forEach((video, index) => {
-        if (!video.title || !video.file) {
-          errors.push(`Vidéo ${index + 1}: titre et fichier requis`);
-        }
-      });
-    }
-    
-    if (data.resources.documents) {
-      data.resources.documents.forEach((doc, index) => {
-        if (!doc.title || !doc.file) {
-          errors.push(`Document ${index + 1}: titre et fichier requis`);
-        }
-      });
-    }
-  }
-  
-  if (errors.length > 0) {
-    console.error(`❌ Erreurs dans ${filename}:`);
-    errors.forEach(error => console.error(`   - ${error}`));
-    return false;
-  }
-  
-  return true;
-}
-
-/**
- * Génère les données d'une formation
- */
-async function processFormation(filePath) {
-  console.log(`📄 Traitement de: ${path.basename(filePath)}`);
-  
-  try {
-    const fileContent = await fs.readFile(filePath, 'utf8');
-    const { data: frontMatter, content } = matter(fileContent);
-    
-    // Validation des données
-    if (!validateFormationData(frontMatter, path.basename(filePath))) {
-      return null;
-    }
-    
-    // Extraction des modules
-    const modules = extractModules(content, frontMatter);
-    
-    // Calcul de la durée totale estimée
-    const estimatedTotalDuration = modules.reduce((total, module) => 
-      total + module.estimatedDuration, 0
-    );
-    
-    // Création de l'objet formation complet
-    const formation = {
-      // Métadonnées de base
-      ...frontMatter,
-      
-      // Informations de fichier
-      slug: path.basename(filePath, '.md'),
-      filename: path.basename(filePath),
-      lastProcessed: new Date().toISOString(),
-      
-      // Contenu structuré
-      modules: modules,
-      moduleCount: modules.length,
-      
-      // Statistiques
-      estimatedTotalDuration: estimatedTotalDuration,
-      wordCount: content.split(/\s+/).length,
-      
-      // Navigation
-      tableOfContents: modules.map(module => ({
-        id: module.id,
-        title: module.title,
-        order: module.order,
-        duration: module.estimatedDuration
-      })),
-      
-      // Contenu HTML complet (pour recherche)
-      htmlContent: marked(content),
-      rawContent: content
-    };
-    
-    // Ajouter des données spécifiques selon le type
-    if (frontMatter.type === 'equipment' && frontMatter.equipment) {
-      formation.equipmentSpecs = frontMatter.equipment;
-    }
-    
-    console.log(`   ✅ ${modules.length} modules traités`);
-    console.log(`   📊 Durée estimée: ${estimatedTotalDuration} minutes`);
-    
-    return formation;
-    
-  } catch (error) {
-    console.error(`❌ Erreur lors du traitement de ${filePath}:`, error.message);
-    return null;
-  }
-}
-
-/**
- * Génère l'index des formations
- */
-function generateFormationsIndex(formations) {
-  const index = {
-    totalFormations: formations.length,
-    lastGenerated: new Date().toISOString(),
-    
-    // Statistiques globales
-    stats: {
-      byType: {},
-      byDifficulty: {},
-      totalDuration: 0,
-      totalModules: 0
-    },
-    
-    // Liste des formations avec métadonnées essentielles
-    formations: formations.map(formation => ({
-      slug: formation.slug,
-      title: formation.title,
-      type: formation.type,
-      company: formation.company,
-      duration: formation.duration,
-      difficulty: formation.difficulty,
-      instructor: formation.instructor,
-      moduleCount: formation.moduleCount,
-      estimatedTotalDuration: formation.estimatedTotalDuration,
-      lastUpdated: formation.last_updated,
-      version: formation.version,
-      // Première phrase de description si disponible
-      description: formation.learning_objectives ? 
-        formation.learning_objectives[0] : 
-        'Formation professionnelle'
-    })),
-    
-    // Index de recherche
-    searchIndex: formations.map(formation => ({
-      slug: formation.slug,
-      title: formation.title,
-      type: formation.type,
-      keywords: [
-        formation.title,
-        formation.type,
-        formation.company,
-        formation.instructor,
-        ...(formation.learning_objectives || []),
-        ...(formation.prerequisites || [])
-      ].filter(Boolean).join(' ').toLowerCase()
-    }))
+function generateAdvancedConfig(formations) {
+  const stats = {
+    byType: {},
+    byDifficulty: {},
+    componentsUsed: new Set(),
+    totalDuration: 0
   };
   
-  // Calculer les statistiques
   formations.forEach(formation => {
-    // Par type
-    index.stats.byType[formation.type] = 
-      (index.stats.byType[formation.type] || 0) + 1;
-    
-    // Par difficulté
+    stats.byType[formation.type] = (stats.byType[formation.type] || 0) + 1;
     if (formation.difficulty) {
-      index.stats.byDifficulty[formation.difficulty] = 
-        (index.stats.byDifficulty[formation.difficulty] || 0) + 1;
+      stats.byDifficulty[formation.difficulty] = (stats.byDifficulty[formation.difficulty] || 0) + 1;
     }
+    stats.totalDuration += formation.estimatedTotalDuration || 0;
     
-    // Totaux
-    index.stats.totalDuration += formation.duration || 0;
-    index.stats.totalModules += formation.moduleCount || 0;
+    // Collecter les composants utilisés
+    if (formation.componentMapping) {
+      Object.values(formation.componentMapping.components).forEach(comp => {
+        if (comp && typeof comp === 'string') {
+          stats.componentsUsed.add(comp);
+        } else if (comp && comp.component) {
+          stats.componentsUsed.add(comp.component);
+        }
+      });
+    }
   });
   
-  return index;
-}
-
-/**
- * Copie les assets nécessaires
- */
-async function copyAssets() {
-  console.log('📁 Copie des assets...');
-  
-  try {
-    // S'assurer que les dossiers de destination existent
-    await fs.ensureDir(`${PUBLIC_DIR}/assets/images`);
-    await fs.ensureDir(`${PUBLIC_DIR}/assets/videos`);
-    await fs.ensureDir(`${PUBLIC_DIR}/assets/documents`);
-    
-    // Copier les assets depuis le dossier formations si ils existent
-    const assetsDir = `${FORMATIONS_DIR}/assets`;
-    if (await fs.pathExists(assetsDir)) {
-      await fs.copy(assetsDir, `${PUBLIC_DIR}/assets`, { overwrite: true });
-      console.log('   ✅ Assets copiés');
-    } else {
-      console.log('   ℹ️  Aucun dossier assets trouvé');
-    }
-    
-  } catch (error) {
-    console.error('❌ Erreur lors de la copie des assets:', error.message);
-  }
-}
-
-/**
- * Génère le fichier de configuration pour React
- */
-function generateReactConfig(formations) {
-  const config = {
-    // Configuration générale
+  return {
     app: {
       name: 'Formation Generator',
       version: '1.0.0',
+      buildDate: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'development'
     },
     
-    // Paramètres des formations
     formations: {
       basePath: '/formations',
-      defaultTheme: 'industrial',
-      supportedFormats: ['video', 'document', 'interactive']
-    },
-    
-    // Types de templates disponibles
-    templates: {
-      equipment: 'EquipmentTemplate',
-      skills: 'SkillsTemplate',
-      safety: 'SafetyTemplate',
-      general: 'GeneralTemplate'
-    },
-    
-    // Thèmes disponibles
-    themes: {
-      industrial: {
-        primary: '#1e40af',
-        accent: '#f59e0b',
-        background: '#f8fafc'
-      },
-      corporate: {
-        primary: '#059669',
-        accent: '#dc2626',
-        background: '#ffffff'
+      assetsPath: '/assets',
+      total: formations.length,
+      statistics: {
+        ...stats,
+        componentsUsed: Array.from(stats.componentsUsed),
+        averageDuration: Math.round(stats.totalDuration / formations.length)
       }
+    },
+    
+    templates: TEMPLATES,
+    components: COMPONENTS,
+    
+    ui: {
+      themes: {
+        industrial: { primary: '#1e40af', accent: '#f59e0b' },
+        corporate: { primary: '#059669', accent: '#dc2626' },
+        safety: { primary: '#dc2626', accent: '#f59e0b' }
+      },
+      navigation: {
+        showProgress: true,
+        allowJumping: true,
+        autoSave: true
+      }
+    },
+    
+    features: {
+      search: true,
+      bookmarks: true,
+      notes: true,
+      certificates: true,
+      analytics: true
     }
   };
-  
-  return config;
 }
 
-/**
- * Fonction principale de génération
- */
-async function main() {
-  console.log('🚀 Démarrage de la génération des formations...\n');
-  
+// ==========================================
+// FONCTION PRINCIPALE
+// ==========================================
+
+async function generateAdvancedFormations() {
   try {
-    // Créer les dossiers nécessaires
-    await fs.ensureDir(GENERATED_DIR);
-    
-    // Rechercher tous les fichiers Markdown
-    const formationFiles = await glob(`${FORMATIONS_DIR}/**/*.md`);
-    
-    if (formationFiles.length === 0) {
-      console.log('⚠️  Aucun fichier de formation trouvé dans ./formations/');
-      console.log('   Créez vos formations en format .md dans ce dossier');
+    console.log('📁 Création des dossiers...');
+    await fs.ensureDir('./public/generated');
+
+    console.log('🔍 Recherche des fichiers...');
+    const files = await glob('./formations/**/*.md');
+    console.log(`📄 ${files.length} fichier(s) détecté(s)`);
+
+    if (files.length === 0) {
+      console.log('❌ Aucun fichier trouvé');
       return;
     }
-    
-    console.log(`📚 ${formationFiles.length} formation(s) trouvée(s):\n`);
-    
-    // Traiter chaque formation
+
     const formations = [];
-    for (const filePath of formationFiles) {
-      const formation = await processFormation(filePath);
-      if (formation) {
+
+    for (const filePath of files) {
+      const filename = path.basename(filePath);
+      console.log(`\n⚙️  Traitement avancé: ${filename}`);
+
+      try {
+        const content = await fs.readFile(filePath, 'utf8');
+        const { data: frontMatter, content: markdownContent } = matter(content);
+
+        // Détection intelligente du type
+        const detectedType = detectFormationType(frontMatter, markdownContent);
+        console.log(`   🎯 Type détecté: ${detectedType}`);
+
+        // Extraction avancée des modules
+        const modules = extractAdvancedModules(markdownContent);
+        console.log(`   📚 ${modules.length} module(s) avec composants`);
+
+        // Calcul de la durée totale
+        const estimatedTotalDuration = modules.reduce((total, module) => 
+          total + module.estimatedDuration, 0);
+
+        const slug = path.basename(filePath, '.md')
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '');
+
+        // Création de l'objet formation enrichi
+        const formation = {
+          // Métadonnées enrichies
+          ...frontMatter,
+          title: frontMatter.title || filename.replace('.md', ''),
+          type: detectedType,
+          company: frontMatter.company || 'Formation Professionnelle',
+          duration: frontMatter.duration || estimatedTotalDuration,
+          instructor: frontMatter.instructor || 'Instructeur',
+          
+          // Informations système
+          slug: slug,
+          filename: filename,
+          lastProcessed: new Date().toISOString(),
+          generatorVersion: '1.0.0',
+          
+          // Contenu structuré
+          modules: modules,
+          moduleCount: modules.length,
+          estimatedTotalDuration: estimatedTotalDuration,
+          
+          // Mapping des composants React
+          componentMapping: generateComponentMapping({
+            type: detectedType,
+            modules: modules,
+            resources: frontMatter.resources,
+            assessment: frontMatter.assessment,
+            equipment: frontMatter.equipment
+          }),
+          
+          // Navigation et interface
+          tableOfContents: modules.map(module => ({
+            id: module.id,
+            title: module.title,
+            emoji: module.emoji,
+            order: module.order,
+            duration: module.estimatedDuration,
+            type: module.type,
+            components: module.components.map(c => c.type)
+          })),
+          
+          // Contenu pour recherche et indexation
+          searchableContent: [
+            frontMatter.title,
+            ...modules.map(m => m.title),
+            ...(frontMatter.learning_objectives || []),
+            ...(frontMatter.prerequisites || [])
+          ].filter(Boolean).join(' ').toLowerCase(),
+          
+          // Métadonnées de qualité
+          qualityScore: calculateQualityScore(modules, frontMatter),
+          
+          // Contenu complet
+          rawContent: markdownContent,
+          htmlContent: marked(markdownContent)
+        };
+
         formations.push(formation);
-        
-        // Sauvegarder la formation individuelle
-        const outputPath = `${GENERATED_DIR}/${formation.slug}.json`;
-        await fs.writeJSON(outputPath, formation, { spaces: 2 });
+
+        // Sauvegarder individuellement
+        await fs.writeJSON(`./public/generated/${slug}.json`, formation, { spaces: 2 });
+        console.log(`   ✅ ${slug}.json (${formation.qualityScore}/100 qualité)`);
+
+      } catch (error) {
+        console.log(`   ❌ Erreur: ${error.message}`);
       }
     }
-    
-    if (formations.length === 0) {
-      console.log('❌ Aucune formation valide n\'a pu être générée');
-      return;
-    }
-    
-    // Générer l'index des formations
-    console.log('\n📋 Génération de l\'index...');
-    const index = generateFormationsIndex(formations);
-    await fs.writeJSON(`${GENERATED_DIR}/index.json`, index, { spaces: 2 });
-    
-    // Générer la configuration React
-    console.log('⚙️  Génération de la configuration...');
-    const config = generateReactConfig(formations);
-    await fs.writeJSON(`${GENERATED_DIR}/config.json`, config, { spaces: 2 });
-    
-    // Copier les assets
-    await copyAssets();
-    
-    // Résumé final
-    console.log('\n✨ Génération terminée avec succès!');
+
+    // Index enrichi
+    console.log('\n📋 Génération de l\'index enrichi...');
+    const index = {
+      totalFormations: formations.length,
+      lastGenerated: new Date().toISOString(),
+      
+      formations: formations.map(f => ({
+        slug: f.slug,
+        title: f.title,
+        type: f.type,
+        company: f.company,
+        duration: f.duration,
+        difficulty: f.difficulty,
+        moduleCount: f.moduleCount,
+        estimatedDuration: f.estimatedTotalDuration,
+        qualityScore: f.qualityScore,
+        components: f.componentMapping.template,
+        features: f.componentMapping.features
+      })),
+      
+      searchIndex: formations.map(f => ({
+        slug: f.slug,
+        title: f.title,
+        type: f.type,
+        searchText: f.searchableContent
+      }))
+    };
+
+    await fs.writeJSON('./public/generated/index.json', index, { spaces: 2 });
+
+    // Configuration avancée
+    console.log('⚙️  Génération de la configuration avancée...');
+    const config = generateAdvancedConfig(formations);
+    await fs.writeJSON('./public/generated/config.json', config, { spaces: 2 });
+
+    console.log(`\n🎉 GÉNÉRATION AVANCÉE TERMINÉE !`);
     console.log(`📊 Statistiques:`);
     console.log(`   - ${formations.length} formations générées`);
-    console.log(`   - ${index.stats.totalModules} modules au total`);
-    console.log(`   - ${index.stats.totalDuration} minutes de contenu`);
-    console.log(`   - Types: ${Object.keys(index.stats.byType).join(', ')}`);
-    
-    console.log('\n📁 Fichiers générés:');
-    console.log(`   - ${GENERATED_DIR}/index.json`);
-    console.log(`   - ${GENERATED_DIR}/config.json`);
-    formations.forEach(f => {
-      console.log(`   - ${GENERATED_DIR}/${f.slug}.json`);
-    });
-    
+    console.log(`   - ${config.formations.statistics.componentsUsed.length} composants utilisés`);
+    console.log(`   - ${config.formations.statistics.totalDuration} minutes de contenu`);
+    console.log(`   - Score qualité moyen: ${Math.round(formations.reduce((sum, f) => sum + f.qualityScore, 0) / formations.length)}/100`);
+
   } catch (error) {
-    console.error('💥 Erreur fatale:', error.message);
-    console.error(error.stack);
-    process.exit(1);
+    console.error('💥 Erreur:', error.message);
   }
 }
 
-// Exécuter le script
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main();
+function calculateQualityScore(modules, frontMatter) {
+  let score = 0;
+  
+  // Points pour les métadonnées complètes
+  if (frontMatter.title) score += 10;
+  if (frontMatter.learning_objectives && frontMatter.learning_objectives.length > 0) score += 15;
+  if (frontMatter.prerequisites) score += 10;
+  if (frontMatter.resources) score += 15;
+  if (frontMatter.assessment) score += 15;
+  
+  // Points pour la structure
+  if (modules.length >= 3) score += 10;
+  if (modules.length <= 8) score += 5; // Pas trop de modules
+  
+  // Points pour l'interactivité
+  const hasExercises = modules.some(m => m.components.some(c => c.type === 'ExerciseBlock'));
+  if (hasExercises) score += 10;
+  
+  const hasVideos = modules.some(m => m.components.some(c => c.type === 'VideoPlayer'));
+  if (hasVideos) score += 5;
+  
+  const hasCallouts = modules.some(m => m.components.some(c => c.type === 'CalloutBox'));
+  if (hasCallouts) score += 5;
+  
+  return Math.min(score, 100);
 }
 
-export default main;
+generateAdvancedFormations();

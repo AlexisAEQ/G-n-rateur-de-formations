@@ -1,38 +1,79 @@
 {
-  "name": "gen_formations",
+  "name": "formation-generator",
   "version": "1.0.0",
-  "main": "index.js",
+  "description": "Générateur de pages de formation pour entreprises manufacturières",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run generate && vite build",
+    "build": "npm run validate && npm run generate && vite build",
     "preview": "vite preview",
     "generate": "node build-tools/generate.js",
     "validate": "node build-tools/validate.js",
-    "deploy": "npm run build && gh-pages -d dist"
+    "clean": "rimraf dist public/generated",
+    "deploy": "npm run build && gh-pages -d dist",
+    "test:formations": "npm run validate && npm run generate",
+    "watch": "npm run generate && npm run dev",
+    "analyze": "npm run build && npx vite-bundle-analyzer dist/stats.html"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "framer-motion": "^12.15.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "framer-motion": "^10.16.0",
+    "lucide-react": "^0.263.1",
     "gray-matter": "^4.0.3",
-    "lucide-react": "^0.511.0",
-    "marked": "^15.0.12",
-    "prism-react-renderer": "^2.4.1",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "marked": "^9.1.2",
+    "prism-react-renderer": "^2.1.0"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.8",
-    "@vitejs/plugin-react": "^4.5.0",
-    "autoprefixer": "^10.4.21",
-    "fs-extra": "^11.3.0",
-    "gh-pages": "^6.3.0",
-    "glob": "^11.0.2",
-    "postcss": "^8.5.3",
-    "tailwindcss": "^4.1.8",
-    "vite": "^6.3.5"
+    "vite": "^4.4.5",
+    "@vitejs/plugin-react": "^4.0.4",
+    "tailwindcss": "^3.3.3",
+    "autoprefixer": "^10.4.15",
+    "postcss": "^8.4.29",
+    "gh-pages": "^6.0.0",
+    "fs-extra": "^11.1.1",
+    "glob": "^10.3.4",
+    "rimraf": "^5.0.1",
+    "eslint": "^8.47.0",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.3"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/votre-username/formation-generator.git"
+  },
+  "keywords": [
+    "formation",
+    "training",
+    "manufacturing",
+    "education",
+    "react",
+    "markdown",
+    "generator"
+  ],
+  "author": "Votre Nom",
+  "license": "MIT",
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
   }
 }
