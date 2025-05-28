@@ -1,0 +1,32 @@
+{
+  "totalFormations": 1,
+  "lastGenerated": "2025-05-28T21:01:37.204Z",
+  "formations": [
+    {
+      "slug": "formation-maths-robotique",
+      "title": "Mathématiques pour Techniciens en Robotique",
+      "type": "skills",
+      "company": "Institut Technique Avancé",
+      "duration": 240,
+      "difficulty": "intermédiaire",
+      "moduleCount": 6,
+      "estimatedDuration": 178,
+      "qualityScore": 100,
+      "components": "SkillsTemplate",
+      "features": [
+        "progression",
+        "exercises",
+        "assessment",
+        "certification"
+      ]
+    }
+  ],
+  "searchIndex": [
+    {
+      "slug": "formation-maths-robotique",
+      "title": "Mathématiques pour Techniciens en Robotique",
+      "type": "skills",
+      "searchText": "mathématiques pour techniciens en robotique \udcd0 module 1 : systèmes de coordonnées et repères \udd04 module 2 : transformations géométriques \udfc3 module 3 : cinématique et dynamique \uddee module 4 : algèbre vectorielle et matricielle \udccf module 5 : trigonométrie appliquée module 6 : applications pratiques et résolution de problèmes maîtriser les systèmes de coordonnées et transformations géométriques en robotique calculer les vitesses et accélérations dans les mouvements robotiques appliquer la trigonométrie pour résoudre des problèmes de positionnement utiliser l'algèbre vectorielle pour analyser les forces et déplacements comprendre les matrices de transformation homogène résoudre des problèmes de cinématique directe et inverse mathématiques de niveau collégial notions de base en physique mécanique expérience pratique avec des systèmes robotiques capacité à utiliser une calculatrice scientifique"
+    }
+  ]
+}

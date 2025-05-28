@@ -1,0 +1,84 @@
+{
+  "app": {
+    "name": "Formation Generator",
+    "version": "1.0.0",
+    "buildDate": "2025-05-28T21:01:37.206Z"
+  },
+  "formations": {
+    "basePath": "/formations",
+    "total": 1
+  },
+  "templates": {
+    "equipment": {
+      "name": "EquipmentTemplate",
+      "features": [
+        "specs",
+        "safety",
+        "maintenance",
+        "troubleshooting"
+      ],
+      "requiredFields": [
+        "equipment.name",
+        "equipment.manufacturer"
+      ],
+      "defaultSections": [
+        "overview",
+        "safety",
+        "operation",
+        "maintenance",
+        "evaluation"
+      ]
+    },
+    "skills": {
+      "name": "SkillsTemplate",
+      "features": [
+        "progression",
+        "exercises",
+        "assessment",
+        "certification"
+      ],
+      "requiredFields": [
+        "difficulty",
+        "learning_objectives"
+      ],
+      "defaultSections": [
+        "introduction",
+        "content",
+        "practice",
+        "evaluation"
+      ]
+    },
+    "safety": {
+      "name": "SafetyTemplate",
+      "features": [
+        "procedures",
+        "risks",
+        "emergency",
+        "certification"
+      ],
+      "requiredFields": [
+        "assessment"
+      ],
+      "defaultSections": [
+        "risks",
+        "procedures",
+        "emergency",
+        "certification"
+      ]
+    },
+    "general": {
+      "name": "GeneralTemplate",
+      "features": [
+        "content",
+        "resources",
+        "evaluation"
+      ],
+      "requiredFields": [],
+      "defaultSections": [
+        "introduction",
+        "content",
+        "conclusion"
+      ]
+    }
+  }
+}
