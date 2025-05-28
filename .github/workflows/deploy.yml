@@ -1,0 +1,87 @@
+name: Deploy Formation Generator to GitHub Pages
+
+on:
+  # Déclencher sur push vers la branche main
+  push:
+    branches: [ main ]
+  
+  # Permettre l'exécution manuelle depuis l'interface GitHub
+  workflow_dispatch:
+
+# Définir les permissions nécessaires pour GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Empêcher les déploiements simultanés
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  # Job de build et test
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Étape 1: Récupérer le code source
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Récupérer tout l'historique pour les statistiques
+      
+      # Étape 2: Configurer Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      # Étape 3: Installer les dépendances
+      - name: Install dependencies
+        run: npm ci
+      
+      # Étape 4: Validation des formations
+      - name: Validate formations
+        run: npm run validate
+        continue-on-error: false  # Arrêter si validation échoue
+      
+      # Étape 5: Génération des formations
+      - name: Generate formations
+        run: npm run generate
+      
+      # Étape 6: Build de l'application
+      - name: Build application
+        run: npm run build
+      
+      # Étape 7: Configurer GitHub Pages
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      
+      # Étape 8: Upload des artifacts
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+  
+  # Job de déploiement
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+      # Déployer sur GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+      
+      # Notification de succès
+      - name: Deployment notification
+        run: |
+          echo "✅ Déploiement réussi!"
+          echo "🌐 URL: ${{ steps.deployment.outputs.page_url }}"
+          echo "📊 Consultez les formations générées"
