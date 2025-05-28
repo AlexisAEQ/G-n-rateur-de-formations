@@ -2,12 +2,14 @@
   "name": "gen_formations",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "npm run generate && vite build",
     "preview": "vite preview", 
     "generate": "node build-tools/generate.js",
-    "validate": "node build-tools/validate.js"
+    "validate": "node build-tools/validate.js",
+    "deploy": "npm run build && gh-pages -d dist"
   },
   "keywords": [],
   "author": "",
