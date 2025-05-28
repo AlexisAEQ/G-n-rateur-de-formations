@@ -1,0 +1,31 @@
+{
+  "name": "gen_formations",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "framer-motion": "^12.15.0",
+    "gray-matter": "^4.0.3",
+    "lucide-react": "^0.511.0",
+    "marked": "^15.0.12",
+    "prism-react-renderer": "^2.4.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.5.0",
+    "autoprefixer": "^10.4.21",
+    "fs-extra": "^11.3.0",
+    "gh-pages": "^6.3.0",
+    "glob": "^11.0.2",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^4.1.8",
+    "vite": "^6.3.5"
+  }
+}
