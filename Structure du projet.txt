@@ -1,0 +1,39 @@
+formation-generator/
+├── formations/
+│   ├── robotique-ur10e.md
+│   ├── automate-siemens-s7.md
+│   └── variateur-schneider-atv.md
+├── src/
+│   ├── components/
+│   │   ├── FormationLayout.jsx
+│   │   ├── ModuleCard.jsx
+│   │   ├── ProgressTracker.jsx
+│   │   ├── VideoPlayer.jsx
+│   │   └── QuizSection.jsx
+│   ├── templates/
+│   │   ├── EquipmentTemplate.jsx
+│   │   ├── SkillsTemplate.jsx
+│   │   └── SafetyTemplate.jsx
+│   ├── styles/
+│   │   ├── globals.css
+│   │   └── components.css
+│   ├── utils/
+│   │   ├── markdownParser.js
+│   │   ├── contentValidator.js
+│   │   └── pageGenerator.js
+│   └── main.js
+├── public/
+│   ├── assets/
+│   │   ├── images/
+│   │   ├── videos/
+│   │   └── documents/
+│   └── generated/
+├── build-tools/
+│   ├── generate.js
+│   └── validate.js
+├── .github/
+│   └── workflows/
+│       └── deploy.yml
+├── package.json
+├── vite.config.js
+└── index.html
