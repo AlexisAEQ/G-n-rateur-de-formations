@@ -98,11 +98,49 @@ const TEMPLATES = {
 // FONCTIONS UTILITAIRES SÉCURISÉES
 // ==========================================
 
+// FONCTION AJOUTÉE POUR NETTOYER LES [object Object]
+function cleanObject(obj) {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+  
+  if (typeof obj !== 'object') {
+    return obj;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(cleanObject);
+  }
+  
+  const cleaned = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === 'object' && value !== null) {
+      // Si c'est un objet, le nettoyer récursivement
+      cleaned[key] = cleanObject(value);
+    } else if (typeof value === 'function') {
+      // Ignorer les fonctions
+      continue;
+    } else if (value === undefined) {
+      // Ignorer les valeurs undefined
+      continue;
+    } else {
+      // Garder les valeurs primitives
+      cleaned[key] = value;
+    }
+  }
+  
+  return cleaned;
+}
+
 function safeMarkdown(content) {
   try {
     const contentStr = String(content || '').trim();
     if (!contentStr) return '';
-    return marked(contentStr);
+    
+    // AJOUT: Nettoyer les [object Object] avant conversion
+    const cleanedContent = contentStr.replace(/\[object Object\]/g, '');
+    
+    return marked(cleanedContent);
   } catch (error) {
     console.log(`   ⚠️  Erreur markdown ignorée: ${error.message}`);
     return `<p>${String(content || '')}</p>`;
@@ -361,6 +399,9 @@ async function generateAdvancedFormations() {
           console.log(`   ⚠️  Erreur parsing front matter: ${parseError.message}`);
           console.log(`   ℹ️  Utilisation du contenu brut`);
         }
+
+        // AJOUT: Nettoyer les métadonnées pour éviter [object Object]
+        frontMatter = cleanObject(frontMatter);
 
         // Détection intelligente du type
         const detectedType = detectFormationType(frontMatter, markdownContent);
