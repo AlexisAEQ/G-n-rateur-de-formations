@@ -1,12 +1,12 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
+import path from 'path'
 
 export default defineConfig({
-  plugins: [
-    react(),
-    tailwindcss()  // Plugin Vite pour Tailwind v4
-  ],
+  plugins: [react()],
+  
+  // Configuration pour GitHub Pages
+  base: process.env.NODE_ENV === 'production' ? '/formation-generator/' : '/',
   
   build: {
     outDir: 'dist',
@@ -20,7 +20,9 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@components': path.resolve(__dirname, './src/components'),
-      '@templates': path.resolve(__dirname, './src/templates')
+      '@templates': path.resolve(__dirname, './src/templates'),
+      '@utils': path.resolve(__dirname, './src/utils'),
+      '@styles': path.resolve(__dirname, './src/styles')
     }
   },
   
