@@ -1,13 +1,13 @@
 {
   "title": "Mathématiques pour Techniciens en Robotique",
   "type": "skills",
-  "company": "Institut Technique Avancé",
-  "duration": 240,
-  "difficulty": "intermédiaire",
-  "instructor": "Dr. Marie Lavoie",
+  "company": "AEQ",
+  "duration": 150,
+  "difficulty": "Avancée",
+  "instructor": "Alexis Ross",
   "version": "1.0",
   "last_updated": "2025-05-28",
-  "theme": "corporate",
+  "theme": "industrial",
   "primary_color": "#059669",
   "accent_color": "#dc2626",
   "learning_objectives": [
@@ -87,7 +87,7 @@
   },
   "slug": "formation-maths-robotique",
   "filename": "formation_maths_robotique.md",
-  "lastProcessed": "2025-05-29T19:35:16.429Z",
+  "lastProcessed": "2025-05-30T16:48:49.617Z",
   "generatorVersion": "1.0.0",
   "modules": [
     {

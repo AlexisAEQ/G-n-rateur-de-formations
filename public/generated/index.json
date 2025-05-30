@@ -1,14 +1,14 @@
 {
   "totalFormations": 1,
-  "lastGenerated": "2025-05-29T19:35:16.435Z",
+  "lastGenerated": "2025-05-30T16:48:49.622Z",
   "formations": [
     {
       "slug": "formation-maths-robotique",
       "title": "Mathématiques pour Techniciens en Robotique",
       "type": "skills",
-      "company": "Institut Technique Avancé",
-      "duration": 240,
-      "difficulty": "intermédiaire",
+      "company": "AEQ",
+      "duration": 150,
+      "difficulty": "Avancée",
       "moduleCount": 6,
       "estimatedDuration": 178,
       "qualityScore": 100,
