@@ -3,13 +3,19 @@
 @tailwind utilities;
 
 /* Styles globaux pour l'application */
+html {
+  scroll-behavior: smooth; /* Ajout pour un défilement fluide */
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', /* Police Inter ajoutée pour un look moderne */
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  @apply bg-slate-50 text-slate-700; /* Fond légèrement gris et couleur de texte par défaut pour un meilleur contraste */
+  /* Pour un mode sombre, vous pourriez ajouter : dark:bg-slate-900 dark:text-slate-300 */
 }
 
 code {
@@ -19,60 +25,131 @@ code {
 
 /* Styles pour le contenu des modules */
 .module-content {
-  @apply prose prose-lg max-w-none;
+  @apply prose prose-slate prose-lg max-w-none; /* Passage à prose-slate pour une meilleure harmonie avec le fond */
+  /* prose-slate ajuste les couleurs du texte pour le thème slate */
+}
+
+.module-content h1,
+.module-content h2,
+.module-content h3,
+.module-content h4, /* Ajout pour h4 si utilisé */
+.module-content h5, /* Ajout pour h5 si utilisé */
+.module-content h6 { /* Ajout pour h6 si utilisé */
+  @apply transition-colors duration-200 ease-in-out;
+  /* Effet de survol subtil pour les titres */
+}
+.module-content h1:hover,
+.module-content h2:hover,
+.module-content h3:hover,
+.module-content h4:hover,
+.module-content h5:hover,
+.module-content h6:hover {
+  @apply text-sky-600; /* Changement de couleur au survol, ex: bleu ciel */
+  /* Pour un mode sombre : dark:text-sky-400 */
 }
 
 .module-content h1 {
-  @apply text-2xl font-bold text-gray-900 mb-4;
+  @apply text-2xl font-bold text-slate-900 mb-4;
+  /* dark:text-slate-100 */
 }
 
 .module-content h2 {
-  @apply text-xl font-semibold text-gray-800 mb-3 mt-6;
+  @apply text-xl font-semibold text-slate-800 mb-3 mt-6;
+  /* dark:text-slate-200 */
 }
 
 .module-content h3 {
-  @apply text-lg font-medium text-gray-700 mb-2 mt-4;
+  @apply text-lg font-medium text-slate-700 mb-2 mt-4;
+  /* dark:text-slate-300 */
 }
 
 .module-content p {
-  @apply text-gray-700 mb-4 leading-relaxed;
+  @apply text-slate-700 mb-4 leading-relaxed;
+  /* dark:text-slate-300 */
 }
+
+.module-content a { /* Styles améliorés pour les liens */
+  @apply text-sky-600 no-underline hover:underline;
+  @apply transition-colors duration-200 ease-in-out;
+  /* dark:text-sky-400 dark:hover:text-sky-300 */
+}
+.module-content a:focus-visible { /* Meilleure visibilité du focus pour l'accessibilité */
+    @apply outline-none ring-2 ring-sky-500 ring-offset-2 rounded-sm;
+}
+
 
 .module-content ul, .module-content ol {
   @apply mb-4 pl-6;
 }
 
 .module-content li {
-  @apply mb-2 text-gray-700;
+  @apply mb-2 text-slate-700;
+  /* dark:text-slate-300 */
 }
 
 .module-content blockquote {
-  @apply border-l-4 border-blue-500 pl-4 my-4 bg-blue-50 py-2 rounded-r;
+  @apply border-l-4 border-sky-500 pl-4 pr-4 my-6 bg-sky-50 py-3 rounded-r-md shadow-sm;
+  @apply transition-all duration-200 ease-in-out;
+  /* dark:bg-sky-900/30 dark:border-sky-400 dark:text-slate-300 */
+}
+.module-content blockquote:hover {
+  @apply shadow-md border-sky-600;
+  /* dark:border-sky-300 */
+  transform: translateY(-2px); /* Léger soulèvement au survol */
 }
 
-.module-content code {
-  @apply bg-gray-100 px-2 py-1 rounded text-sm font-mono;
+.module-content code:not(pre code) { /* Code en ligne (pas dans un bloc pre) */
+  @apply bg-slate-100 text-slate-800 px-2 py-1 rounded text-sm font-mono shadow-sm; /* Remplacement de shadow-xs par shadow-sm */
+  @apply transition-all duration-150 ease-in-out;
+  /* dark:bg-slate-800 dark:text-slate-200 */
+}
+.module-content code:not(pre code):hover {
+  @apply bg-slate-200 shadow-md; /* Augmentation de l'ombre au survol pour un effet plus visible */
+  /* dark:bg-slate-700 */
+  transform: scale(1.02); /* Léger agrandissement au survol */
 }
 
 .module-content pre {
-  @apply bg-gray-900 text-white p-4 rounded-lg overflow-x-auto mb-4;
+  @apply bg-slate-900 text-white p-4 rounded-lg overflow-x-auto mb-6 shadow-md;
+  @apply transition-all duration-200 ease-in-out;
+  /* dark:bg-gray-800 (ou garder slate-900) */
+}
+.module-content pre:hover {
+  @apply shadow-xl;
+  transform: scale(1.01); /* Léger agrandissement au survol */
 }
 
 .module-content pre code {
-  @apply bg-transparent px-0 py-0;
+  @apply bg-transparent px-0 py-0 shadow-none; /* Assurer que le code dans pre n'a pas de fond/ombre propre */
 }
 
-/* Callouts spéciaux */
+/* Callouts spéciaux améliorés */
+.video-callout,
+.warning-callout,
+.tip-callout {
+  @apply p-4 my-6 rounded-r-md shadow-md border-l-4;
+  @apply transition-all duration-200 ease-in-out;
+}
+.video-callout:hover,
+.warning-callout:hover,
+.tip-callout:hover {
+  @apply shadow-lg;
+  transform: translateY(-3px) scale(1.01); /* Effet de soulèvement et léger zoom au survol */
+}
+
 .video-callout {
-  @apply bg-blue-50 border-l-4 border-blue-500 p-4 my-4 rounded-r-md;
+  @apply bg-blue-50 border-blue-500 text-blue-800;
+  /* dark:bg-blue-900/30 dark:border-blue-400 dark:text-blue-300 */
 }
 
 .warning-callout {
-  @apply bg-red-50 border-l-4 border-red-500 p-4 my-4 rounded-r-md;
+  @apply bg-red-50 border-red-500 text-red-800;
+  /* dark:bg-red-900/30 dark:border-red-400 dark:text-red-300 */
 }
 
 .tip-callout {
-  @apply bg-yellow-50 border-l-4 border-yellow-500 p-4 my-4 rounded-r-md;
+  @apply bg-yellow-50 border-yellow-500 text-yellow-800;
+  /* dark:bg-yellow-900/30 dark:border-yellow-400 dark:text-yellow-300 */
 }
 
 /* Animations */
@@ -87,53 +164,123 @@ code {
   }
 }
 
-.fade-in {
-  animation: fadeIn 0.3s ease-out;
+/* Nouvelle animation pour un effet de glissement vers le haut */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-/* Styles pour les inputs de type range (sliders) */
+.fade-in {
+  animation: fadeIn 0.5s ease-out forwards; /* 'forwards' pour maintenir l'état final */
+}
+
+.slide-in-up {
+  animation: slideInUp 0.5s ease-out forwards;
+}
+
+/* Styles pour les inputs de type range (sliders) améliorés */
 .slider {
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
   cursor: pointer;
+  width: 100%; /* Assurer que le slider prend toute la largeur disponible */
+  padding: 8px 0; /* Ajout de padding pour faciliter l'interaction tactile */
 }
 
-.slider::-webkit-slider-track {
-  background: #ffffff40;
-  height: 4px;
-  border-radius: 2px;
+.slider::-webkit-slider-runnable-track {
+  background: rgba(100, 116, 139, 0.3); /* Couleur de fond de la piste (slate-500 avec opacité) */
+  /* dark: rgba(100, 116, 139, 0.5); */
+  height: 6px;
+  border-radius: 3px;
+  transition: background 0.2s ease-in-out;
+}
+.slider:hover::-webkit-slider-runnable-track {
+    background: rgba(100, 116, 139, 0.5);
+    /* dark: rgba(100, 116, 139, 0.7); */
 }
 
 .slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  background: #ffffff;
-  height: 16px;
-  width: 16px;
+  background: #0ea5e9; /* Couleur du pouce (sky-500) */
+  /* dark: #38bdf8 (sky-400) */
+  height: 20px;
+  width: 20px;
   border-radius: 50%;
   cursor: pointer;
+  margin-top: -7px; /* Centrer le pouce sur la piste */
+  border: 2px solid white; /* Bordure pour se démarquer */
+  /* dark: border-2 border-slate-700 */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: all 0.2s ease-in-out;
+}
+.slider:hover::-webkit-slider-thumb {
+    background: #0284c7; /* sky-600 */
+    /* dark: #0ea5e9 (sky-500) */
+    transform: scale(1.1);
+}
+.slider:focus-visible::-webkit-slider-thumb { /* Style de focus pour l'accessibilité */
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.4); /* Anneau de focus (sky-500 avec opacité) */
 }
 
+
 .slider::-moz-range-track {
-  background: #ffffff40;
-  height: 4px;
-  border-radius: 2px;
+  background: rgba(100, 116, 139, 0.3);
+  /* dark: rgba(100, 116, 139, 0.5); */
+  height: 6px;
+  border-radius: 3px;
   border: none;
+  transition: background 0.2s ease-in-out;
+}
+.slider:hover::-moz-range-track {
+    background: rgba(100, 116, 139, 0.5);
+    /* dark: rgba(100, 116, 139, 0.7); */
 }
 
 .slider::-moz-range-thumb {
-  background: #ffffff;
-  height: 16px;
-  width: 16px;
+  background: #0ea5e9; /* sky-500 */
+  /* dark: #38bdf8 (sky-400) */
+  height: 20px;
+  width: 20px;
   border-radius: 50%;
   cursor: pointer;
-  border: none;
+  border: 2px solid white;
+  /* dark: border-2 border-slate-700 */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: all 0.2s ease-in-out;
 }
+.slider:hover::-moz-range-thumb {
+    background: #0284c7; /* sky-600 */
+    /* dark: #0ea5e9 (sky-500) */
+    transform: scale(1.1);
+}
+.slider:focus-visible::-moz-range-thumb {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.4); /* sky-500 avec opacité */
+}
+
 
 /* Styles responsifs */
 @media (max-width: 768px) {
   .module-content {
-    @apply prose-sm;
+    @apply prose-base; /* Ajustement à prose-base pour les petits écrans, prose-sm peut être trop petit */
+  }
+
+  .module-content h1 {
+    @apply text-xl; /* Ajustement de la taille pour mobile */
+  }
+  .module-content h2 {
+    @apply text-lg; /* Ajustement de la taille pour mobile */
+  }
+  .module-content h3 {
+    @apply text-base; /* Ajustement de la taille pour mobile */
   }
 }

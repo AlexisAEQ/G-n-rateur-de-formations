@@ -4,7 +4,7 @@ import { glob } from 'glob';
 import matter from 'gray-matter';
 import { marked } from 'marked';
 
-console.log('🚀 GÉNÉRATION AVANCÉE AVEC TOUS LES OUTILS (VERSION CORRIGÉE)');
+console.log('🚀 GÉNÉRATION AVANCÉE AVEC TOUS LES OUTILS (VERSION MODIFIÉE POUR MIEUX INTÉGRER enhanced_tailwind_css)');
 
 // ==========================================
 // CONFIGURATION DES OUTILS DISPONIBLES
@@ -13,43 +13,56 @@ console.log('🚀 GÉNÉRATION AVANCÉE AVEC TOUS LES OUTILS (VERSION CORRIGÉE)
 // Configuration Marked avec renderer personnalisé
 const renderer = new marked.Renderer();
 
-// Personnaliser les titres avec IDs pour la navigation
+// Personnaliser les titres pour être stylisés par prose et enhanced_tailwind_css
 renderer.heading = function(text, level) {
   const cleanText = String(text || '').trim();
   const id = cleanText.toLowerCase()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
+    .replace(/[^\w\s-]/g, '') // Supprimer les caractères non alphanumériques sauf espaces et tirets
+    .replace(/\s+/g, '-')     // Remplacer les espaces par des tirets
     .trim();
   
-  return `<h${level} id="${id}" class="heading-${level} text-${level === 1 ? '3xl' : level === 2 ? '2xl' : 'xl'} font-bold mb-4">${cleanText}</h${level}>`;
+  // Génère des titres "propres", laissant prose (via .module-content) gérer le style.
+  // Les styles pour h1, h2, etc. (y compris les effets de survol) dans enhanced_tailwind_css s'appliqueront.
+  return `<h${level} id="${id}">${cleanText}</h${level}>`;
 };
 
-// Personnaliser les liens avec classes Tailwind
+// Personnaliser les liens pour être stylisés par prose et enhanced_tailwind_css
 renderer.link = function(href, title, text) {
   const titleAttr = title ? ` title="${title}"` : '';
   const isExternal = String(href || '').startsWith('http');
   
+  // Génère des liens "propres". Les styles de .module-content a dans enhanced_tailwind_css s'appliqueront.
   if (isExternal) {
-    return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline external-link">${text}</a>`;
+    return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
   }
   
-  return `<a href="${href}"${titleAttr} class="text-blue-600 hover:text-blue-800 underline internal-link">${text}</a>`;
+  return `<a href="${href}"${titleAttr}>${text}</a>`;
 };
 
-// Personnaliser les blockquotes pour les callouts avec classes Tailwind
+// Personnaliser les blockquotes pour les callouts, en utilisant les classes de enhanced_tailwind_css
 renderer.blockquote = function(quote) {
   const quoteStr = String(quote || '');
-  if (quoteStr.includes('📹')) {
-    return `<div class="callout callout-video bg-purple-50 border-l-4 border-purple-400 p-4 my-4 rounded-r-lg">${quote}</div>`;
-  } else if (quoteStr.includes('⚠️')) {
-    return `<div class="callout callout-warning bg-yellow-50 border-l-4 border-yellow-400 p-4 my-4 rounded-r-lg">${quote}</div>`;
-  } else if (quoteStr.includes('💡')) {
-    return `<div class="callout callout-tip bg-blue-50 border-l-4 border-blue-400 p-4 my-4 rounded-r-lg">${quote}</div>`;
-  } else if (quoteStr.includes('🔐')) {
-    return `<div class="callout callout-safety bg-red-50 border-l-4 border-red-400 p-4 my-4 rounded-r-lg">${quote}</div>`;
+  // Retirer le <p></p> potentiellement ajouté par marked à l'intérieur du blockquote pour les callouts
+  const innerContent = quoteStr.replace(/^<p>|<\/p>$/g, '');
+
+  if (quoteStr.includes('📹')) { // Vidéo
+    // Utilise la classe .video-callout définie dans enhanced_tailwind_css
+    return `<div class="video-callout">${innerContent}</div>`;
+  } else if (quoteStr.includes('⚠️')) { // Avertissement
+    // Utilise la classe .warning-callout définie dans enhanced_tailwind_css
+    return `<div class="warning-callout">${innerContent}</div>`;
+  } else if (quoteStr.includes('💡')) { // Astuce
+    // Utilise la classe .tip-callout définie dans enhanced_tailwind_css
+    return `<div class="tip-callout">${innerContent}</div>`;
+  } else if (quoteStr.includes('🔐')) { // Sécurité (mapped to warning-callout for red theme)
+    // Utilise la classe .warning-callout (thème rouge) pour la sécurité.
+    // Vous pourriez créer une classe .safety-callout distincte dans enhanced_tailwind_css si besoin.
+    return `<div class="warning-callout">${innerContent}</div>`;
   }
   
-  return `<blockquote class="border-l-4 border-gray-300 pl-4 italic text-gray-600 my-4">${quote}</blockquote>`;
+  // Pour les blockquotes standard, génère une balise simple.
+  // Les styles de .module-content blockquote dans enhanced_tailwind_css s'appliqueront.
+  return `<blockquote>${quote}</blockquote>`;
 };
 
 // Configuration Marked avec toutes les options
@@ -58,13 +71,14 @@ marked.setOptions({
   pedantic: false,
   gfm: true,
   breaks: false,
-  sanitize: false,
+  sanitize: false, // Soyez conscient des implications de sécurité si le contenu Markdown n'est pas sûr
   smartypants: true,
   xhtml: false
 });
 
 // ==========================================
 // TEMPLATES ET COMPOSANTS DISPONIBLES
+// (Pas de changement ici, sauf si la logique de mapping doit changer)
 // ==========================================
 
 const TEMPLATES = {
@@ -96,9 +110,9 @@ const TEMPLATES = {
 
 // ==========================================
 // FONCTIONS UTILITAIRES SÉCURISÉES
+// (Pas de changement majeur ici, cleanObject et safeMarkdown sont utiles)
 // ==========================================
 
-// FONCTION AJOUTÉE POUR NETTOYER LES [object Object]
 function cleanObject(obj) {
   if (obj === null || obj === undefined) {
     return obj;
@@ -115,16 +129,12 @@ function cleanObject(obj) {
   const cleaned = {};
   for (const [key, value] of Object.entries(obj)) {
     if (typeof value === 'object' && value !== null) {
-      // Si c'est un objet, le nettoyer récursivement
       cleaned[key] = cleanObject(value);
     } else if (typeof value === 'function') {
-      // Ignorer les fonctions
       continue;
     } else if (value === undefined) {
-      // Ignorer les valeurs undefined
       continue;
     } else {
-      // Garder les valeurs primitives
       cleaned[key] = value;
     }
   }
@@ -137,18 +147,16 @@ function safeMarkdown(content) {
     const contentStr = String(content || '').trim();
     if (!contentStr) return '';
     
-    // AJOUT: Nettoyer les [object Object] avant conversion
     const cleanedContent = contentStr.replace(/\[object Object\]/g, '');
     
     return marked(cleanedContent);
   } catch (error) {
     console.log(`   ⚠️  Erreur markdown ignorée: ${error.message}`);
-    return `<p>${String(content || '')}</p>`;
+    return `<p>${String(content || '')}</p>`; // Fallback simple
   }
 }
 
 function detectFormationType(frontMatter, content) {
-  // Sécuriser les paramètres
   const fm = frontMatter || {};
   const contentStr = String(content || '').toLowerCase();
   
@@ -172,65 +180,79 @@ function detectFormationType(frontMatter, content) {
 function extractAdvancedModules(content) {
   const modules = [];
   const contentStr = String(content || '');
-  const lines = contentStr.split('\n');
-  let currentModule = null;
-  let currentContent = [];
+  // Utiliser une expression régulière pour mieux capturer les titres de module H1 Markdown
+  const moduleRegex = /^#\s+(.+?)\s*$/gm;
+  let match;
+  let lastIndex = 0;
+  let order = 1;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = String(lines[i] || '');
-    
-    if (line.startsWith('# ') && !line.includes('===')) {
+  while ((match = moduleRegex.exec(contentStr)) !== null) {
+    if (lastIndex !== 0) {
       // Sauvegarder le module précédent
-      if (currentModule) {
-        const processedContent = currentContent.join('\n').trim();
-        currentModule.content = processedContent;
-        currentModule.htmlContent = safeMarkdown(processedContent);
-        currentModule.components = extractModuleComponents(processedContent);
-        currentModule.estimatedDuration = calculateDuration(processedContent);
-        modules.push(currentModule);
+      const previousModuleContent = contentStr.substring(lastIndex, match.index).trim();
+      if (modules.length > 0) {
+        const prevModule = modules[modules.length - 1];
+        prevModule.content = previousModuleContent;
+        prevModule.htmlContent = safeMarkdown(previousModuleContent);
+        prevModule.components = extractModuleComponents(previousModuleContent);
+        prevModule.estimatedDuration = calculateDuration(previousModuleContent);
       }
-      
-      // Nouveau module
-      const titleWithEmoji = line.replace('# ', '').trim();
-      const title = titleWithEmoji.replace(/^[🤖⚙️🎯🛡️📚🔧🔍📝📊✅🚨]+\s*/, '').trim();
-      const emoji = titleWithEmoji.match(/^[🤖⚙️🎯🛡️📚🔧🔍📝📊✅🚨]+/)?.[0] || '📄';
-      
-      const id = title.toLowerCase()
-        .replace(/[^\w\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .trim() || `module-${modules.length + 1}`;
-      
-      currentModule = {
-        id: id,
-        title: title || 'Module sans titre',
-        titleWithEmoji: titleWithEmoji,
-        emoji: emoji,
-        order: modules.length + 1,
-        content: '',
-        htmlContent: '',
-        components: [],
-        estimatedDuration: 0,
-        type: detectModuleType(titleWithEmoji)
-      };
-      
-      currentContent = [];
-    } else if (currentModule) {
-      currentContent.push(line);
     }
+
+    const titleWithEmoji = match[1].trim();
+    const title = titleWithEmoji.replace(/^[🤖⚙️🎯🛡️📚🔧🔍📝📊✅🚨📄]+\s*/, '').trim();
+    const emoji = titleWithEmoji.match(/^[🤖⚙️🎯🛡️📚🔧🔍📝📊✅🚨📄]+/)?.[0] || '📄';
+    
+    const id = title.toLowerCase()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .trim() || `module-${order}`;
+    
+    modules.push({
+      id: id,
+      title: title || 'Module sans titre',
+      titleWithEmoji: titleWithEmoji,
+      emoji: emoji,
+      order: order++,
+      content: '', // Sera rempli avec le contenu jusqu'au prochain H1 ou la fin
+      htmlContent: '',
+      components: [],
+      estimatedDuration: 0,
+      type: detectModuleType(titleWithEmoji)
+    });
+    lastIndex = moduleRegex.lastIndex;
   }
-  
-  // Ajouter le dernier module
-  if (currentModule) {
-    const processedContent = currentContent.join('\n').trim();
-    currentModule.content = processedContent;
-    currentModule.htmlContent = safeMarkdown(processedContent);
-    currentModule.components = extractModuleComponents(processedContent);
-    currentModule.estimatedDuration = calculateDuration(processedContent);
-    modules.push(currentModule);
+
+  // Ajouter le contenu du dernier module
+  if (modules.length > 0) {
+    const lastModuleContent = contentStr.substring(lastIndex).trim();
+    const lastMod = modules[modules.length - 1];
+    lastMod.content = lastModuleContent;
+    lastMod.htmlContent = safeMarkdown(lastModuleContent);
+    lastMod.components = extractModuleComponents(lastModuleContent);
+    lastMod.estimatedDuration = calculateDuration(lastModuleContent);
+  } else if (contentStr && modules.length === 0) {
+    // Gérer le cas où il n'y a pas de H1 pour les modules, mais il y a du contenu
+    // Considérer l'ensemble du contenu comme un seul module
+    const title = "Contenu Principal";
+    const id = "main-content";
+    modules.push({
+        id: id,
+        title: title,
+        titleWithEmoji: `📄 ${title}`,
+        emoji: '📄',
+        order: 1,
+        content: contentStr,
+        htmlContent: safeMarkdown(contentStr),
+        components: extractModuleComponents(contentStr),
+        estimatedDuration: calculateDuration(contentStr),
+        type: 'content'
+    });
   }
   
   return modules;
 }
+
 
 function detectModuleType(title) {
   const titleLower = String(title || '').toLowerCase();
@@ -255,23 +277,17 @@ function extractModuleComponents(content) {
   const components = [];
   const contentStr = String(content || '');
   
-  // Détecter les vidéos
-  if (contentStr.includes('📹') || contentStr.includes('Vidéo')) {
+  if (contentStr.includes('📹') || contentStr.match(/Vidéo recommandée/i)) {
     components.push({ type: 'VideoPlayer', detected: true });
   }
-  
-  // Détecter les exercices
-  if (contentStr.includes('Exercice Pratique') || contentStr.includes('Instructions')) {
+  if (contentStr.includes('Exercice Pratique') || contentStr.includes('Instructions :')) {
     components.push({ type: 'ExerciseBlock', detected: true });
   }
-  
-  // Détecter les checklists
   if (contentStr.match(/- \[[ x]\]/)) {
     components.push({ type: 'SafetyChecklist', detected: true });
   }
-  
-  // Détecter les callouts
   if (contentStr.includes('⚠️') || contentStr.includes('💡') || contentStr.includes('🔐')) {
+    // Note: le renderer.blockquote s'occupe de la transformation en HTML avec la bonne classe
     components.push({ type: 'CalloutBox', detected: true });
   }
   
@@ -281,16 +297,12 @@ function extractModuleComponents(content) {
 function calculateDuration(content) {
   const contentStr = String(content || '');
   const words = contentStr.split(/\s+/).filter(w => w.length > 0).length;
-  const readingTime = Math.ceil(words / 200); // 200 mots/minute
+  const readingTime = Math.ceil(words / 200); 
   
-  // Ajouter du temps pour les éléments interactifs
   let interactiveTime = 0;
-  
-  // Exercices pratiques
   const exercises = (contentStr.match(/Exercice\s+Pratique/gi) || []).length;
-  interactiveTime += exercises * 10; // 10 min par exercice
+  interactiveTime += exercises * 10; 
   
-  // Vidéos (extraire la durée si mentionnée)
   const videoMatches = contentStr.match(/(\d+)min/g) || [];
   videoMatches.forEach(match => {
     const minutes = parseInt(match.replace('min', ''));
@@ -299,11 +311,10 @@ function calculateDuration(content) {
     }
   });
   
-  // Temps pour les callouts et réflexion
   const callouts = (contentStr.match(/[📹⚠️💡🔐]/g) || []).length;
-  interactiveTime += callouts * 2; // 2 min par callout
+  interactiveTime += callouts * 1; // Réduit à 1 min par callout pour ne pas surévaluer
   
-  return Math.max(readingTime + interactiveTime, 5); // Minimum 5 minutes
+  return Math.max(readingTime + interactiveTime, 5);
 }
 
 function generateComponentMapping(formation) {
@@ -318,8 +329,9 @@ function generateComponentMapping(formation) {
       modules: (formation.modules || []).map(module => ({
         component: 'ModuleCard',
         props: {
-          module: module,
-          type: type
+          module: module, // Assurez-vous que l'objet module complet est passé
+          formationTitle: formation.title, // Exemple de prop supplémentaire
+          primaryColor: formation.primary_color // Passer les couleurs si ModuleCard les utilise
         }
       })),
       resources: formation.resources ? 'ResourceList' : null,
@@ -336,24 +348,18 @@ function calculateQualityScore(modules, frontMatter) {
   const fm = frontMatter || {};
   const modulesList = modules || [];
   
-  // Points pour les métadonnées complètes
   if (fm.title) score += 10;
   if (fm.learning_objectives && Array.isArray(fm.learning_objectives) && fm.learning_objectives.length > 0) score += 15;
   if (fm.prerequisites) score += 10;
   if (fm.resources) score += 15;
   if (fm.assessment) score += 15;
-  
-  // Points pour la structure
   if (modulesList.length >= 3) score += 10;
-  if (modulesList.length <= 8) score += 5; // Pas trop de modules
+  if (modulesList.length <= 8) score += 5; 
   
-  // Points pour l'interactivité
   const hasExercises = modulesList.some(m => (m.components || []).some(c => c.type === 'ExerciseBlock'));
   if (hasExercises) score += 10;
-  
   const hasVideos = modulesList.some(m => (m.components || []).some(c => c.type === 'VideoPlayer'));
   if (hasVideos) score += 5;
-  
   const hasCallouts = modulesList.some(m => (m.components || []).some(c => c.type === 'CalloutBox'));
   if (hasCallouts) score += 5;
   
@@ -374,7 +380,7 @@ async function generateAdvancedFormations() {
     console.log(`📄 ${files.length} fichier(s) détecté(s)`);
 
     if (files.length === 0) {
-      console.log('❌ Aucun fichier trouvé');
+      console.log('❌ Aucun fichier Markdown trouvé dans ./formations. Veuillez vérifier le chemin.');
       return;
     }
 
@@ -387,7 +393,6 @@ async function generateAdvancedFormations() {
       try {
         const content = await fs.readFile(filePath, 'utf8');
         
-        // Parser avec gestion d'erreur
         let frontMatter = {};
         let markdownContent = content;
         
@@ -396,153 +401,143 @@ async function generateAdvancedFormations() {
           frontMatter = parsed.data || {};
           markdownContent = parsed.content || '';
         } catch (parseError) {
-          console.log(`   ⚠️  Erreur parsing front matter: ${parseError.message}`);
-          console.log(`   ℹ️  Utilisation du contenu brut`);
+          console.log(`   ⚠️  Erreur parsing front matter pour ${filename}: ${parseError.message}`);
+          console.log(`   ℹ️  Utilisation du contenu brut pour ${filename}`);
         }
 
-        // AJOUT: Nettoyer les métadonnées pour éviter [object Object]
         frontMatter = cleanObject(frontMatter);
 
-        // Détection intelligente du type
         const detectedType = detectFormationType(frontMatter, markdownContent);
-        console.log(`   🎯 Type détecté: ${detectedType}`);
+        console.log(`   🎯 Type détecté pour ${filename}: ${detectedType}`);
 
-        // Extraction avancée des modules
         const modules = extractAdvancedModules(markdownContent);
-        console.log(`   📚 ${modules.length} module(s) avec composants`);
+        console.log(`   📚 ${modules.length} module(s) trouvé(s) dans ${filename}`);
+        if (modules.length === 0 && markdownContent.trim() !== '') {
+            console.log(`   ⚠️ Aucun module (titre H1) détecté dans ${filename} alors que du contenu est présent. Le contenu sera traité comme un seul module.`);
+        }
 
-        // Calcul de la durée totale
+
         const estimatedTotalDuration = modules.reduce((total, module) => 
           total + (module.estimatedDuration || 0), 0);
 
-        const slug = path.basename(filePath, '.md')
+        const slug = (frontMatter.slug || path.basename(filePath, '.md'))
           .toLowerCase()
-          .replace(/[^a-z0-9]/g, '-')
-          .replace(/-+/g, '-')
-          .replace(/^-|-$/g, '') || 'formation';
+          .replace(/[^\w\s-]/g, '') // Supprimer les caractères spéciaux sauf espaces et tirets
+          .replace(/\s+/g, '-')     // Remplacer les espaces par des tirets
+          .replace(/-+/g, '-')      // Remplacer les tirets multiples par un seul
+          .replace(/^-|-$/g, '')    // Supprimer les tirets en début/fin
+          || 'formation-sans-nom'; // Fallback pour slug vide
 
-        // Création de l'objet formation enrichi
+
         const formation = {
-          // Métadonnées enrichies
           ...frontMatter,
           title: frontMatter.title || filename.replace('.md', ''),
           type: detectedType,
-          company: frontMatter.company || 'Formation Professionnelle',
+          company: frontMatter.company || 'Organisation',
           duration: frontMatter.duration || estimatedTotalDuration,
-          instructor: frontMatter.instructor || 'Instructeur',
-          
-          // Informations système
+          instructor: frontMatter.instructor || 'Expert Formateur',
           slug: slug,
           filename: filename,
           lastProcessed: new Date().toISOString(),
-          generatorVersion: '1.0.0',
-          
-          // Contenu structuré
+          generatorVersion: '1.0.1', // Version updated
           modules: modules,
           moduleCount: modules.length,
           estimatedTotalDuration: estimatedTotalDuration,
-          
-          // Navigation et interface
           tableOfContents: modules.map(module => ({
             id: module.id,
-            title: module.title,
-            emoji: module.emoji,
+            title: module.titleWithEmoji, // Utiliser titleWithEmoji pour la TOC
+            // emoji: module.emoji, // Déjà dans titleWithEmoji
             order: module.order,
             duration: module.estimatedDuration,
             type: module.type,
             components: (module.components || []).map(c => c.type)
           })),
-          
-          // Contenu pour recherche
           searchableContent: [
             frontMatter.title,
-            ...modules.map(m => m.title),
+            ...modules.map(m => m.title), // Utiliser title simple pour la recherche
             ...(frontMatter.learning_objectives || []),
             ...(frontMatter.prerequisites || [])
-          ].filter(Boolean).join(' ').toLowerCase(),
-          
-          // Score de qualité
+          ].filter(Boolean).join(' ').toLowerCase().replace(/[^\w\s-]/g, ''), // Nettoyer le contenu de recherche
           qualityScore: calculateQualityScore(modules, frontMatter),
-          
-          // Contenu complet
-          rawContent: markdownContent,
-          htmlContent: safeMarkdown(markdownContent)
+          rawContent: markdownContent, // Le contenu Markdown brut original des modules combinés
+          // htmlContent global n'est plus pertinent si chaque module a son htmlContent
         };
+        
+        // Nettoyage final de l'objet formation complet
+        const cleanedFormation = cleanObject(formation);
+        
+        // Le componentMapping est généré sur l'objet formation nettoyé
+        cleanedFormation.componentMapping = generateComponentMapping(cleanedFormation);
 
-        // Mapping des composants (après création de l'objet formation)
-        formation.componentMapping = generateComponentMapping(formation);
 
-        formations.push(formation);
+        formations.push(cleanedFormation);
 
-        // Sauvegarder individuellement
-        await fs.writeJSON(`./public/generated/${slug}.json`, formation, { spaces: 2 });
-        console.log(`   ✅ ${slug}.json (score: ${formation.qualityScore}/100)`);
+        await fs.writeJSON(`./public/generated/${slug}.json`, cleanedFormation, { spaces: 2 });
+        console.log(`   ✅ ${slug}.json (score: ${cleanedFormation.qualityScore}/100) généré.`);
 
       } catch (error) {
-        console.log(`   ❌ Erreur: ${error.message}`);
-        console.log(`   📝 Stack: ${error.stack}`);
+        console.log(`   ❌ Erreur lors du traitement de ${filename}: ${error.message}`);
+        console.log(`   📝 Stack: ${error.stack.split('\n').slice(0,3).join('\n')}`); // Short stack
       }
     }
 
-    // Index enrichi
-    console.log('\n📋 Génération de l\'index enrichi...');
-    const index = {
-      totalFormations: formations.length,
-      lastGenerated: new Date().toISOString(),
-      
-      formations: formations.map(f => ({
-        slug: f.slug,
-        title: f.title,
-        type: f.type,
-        company: f.company,
-        duration: f.duration,
-        difficulty: f.difficulty,
-        moduleCount: f.moduleCount,
-        estimatedDuration: f.estimatedTotalDuration,
-        qualityScore: f.qualityScore,
-        components: f.componentMapping ? f.componentMapping.template : 'GeneralTemplate',
-        features: f.componentMapping ? f.componentMapping.features : []
-      })),
-      
-      searchIndex: formations.map(f => ({
-        slug: f.slug,
-        title: f.title,
-        type: f.type,
-        searchText: f.searchableContent || ''
-      }))
-    };
-
-    await fs.writeJSON('./public/generated/index.json', index, { spaces: 2 });
-
-    // Configuration avancée
-    console.log('⚙️  Génération de la configuration avancée...');
-    const config = {
-      app: {
-        name: 'Formation Generator',
-        version: '1.0.0',
-        buildDate: new Date().toISOString()
-      },
-      formations: {
-        basePath: '/formations',
-        total: formations.length
-      },
-      templates: TEMPLATES
-    };
-
-    await fs.writeJSON('./public/generated/config.json', config, { spaces: 2 });
-
-    console.log(`\n🎉 GÉNÉRATION AVANCÉE TERMINÉE !`);
-    console.log(`📊 Statistiques:`);
-    console.log(`   - ${formations.length} formations générées`);
     if (formations.length > 0) {
-      const avgScore = Math.round(formations.reduce((sum, f) => sum + f.qualityScore, 0) / formations.length);
-      const totalDuration = formations.reduce((sum, f) => sum + f.estimatedTotalDuration, 0);
-      console.log(`   - ${totalDuration} minutes de contenu total`);
-      console.log(`   - Score qualité moyen: ${avgScore}/100`);
+        console.log('\n📋 Génération de l\'index enrichi...');
+        const index = {
+          totalFormations: formations.length,
+          lastGenerated: new Date().toISOString(),
+          formations: formations.map(f => ({
+            slug: f.slug,
+            title: f.title,
+            type: f.type,
+            company: f.company,
+            duration: f.duration, // Conserver la durée originale ou estimée
+            difficulty: f.difficulty,
+            moduleCount: f.moduleCount,
+            estimatedDuration: f.estimatedTotalDuration, // Durée calculée
+            qualityScore: f.qualityScore,
+            template: f.componentMapping ? f.componentMapping.template : 'GeneralTemplate',
+            features: f.componentMapping ? f.componentMapping.features : []
+          })),
+          searchIndex: formations.map(f => ({
+            slug: f.slug,
+            title: f.title,
+            type: f.type,
+            searchText: f.searchableContent || ''
+          }))
+        };
+        await fs.writeJSON('./public/generated/index.json', index, { spaces: 2 });
+        console.log('   ✅ index.json généré.');
+
+        console.log('⚙️  Génération de la configuration avancée...');
+        const config = {
+          app: {
+            name: 'Formation Generator',
+            version: '1.0.1', // Version updated
+            buildDate: new Date().toISOString()
+          },
+          formations: {
+            basePath: '/formations', // Chemin public si les JSON sont servis
+            total: formations.length
+          },
+          templates: TEMPLATES // Informations sur les templates disponibles
+        };
+        await fs.writeJSON('./public/generated/config.json', config, { spaces: 2 });
+        console.log('   ✅ config.json généré.');
+
+        console.log(`\n🎉 GÉNÉRATION AVANCÉE TERMINÉE !`);
+        console.log(`📊 Statistiques:`);
+        console.log(`   - ${formations.length} formations traitées.`);
+        const avgScore = Math.round(formations.reduce((sum, f) => sum + f.qualityScore, 0) / formations.length);
+        const totalDurationSum = formations.reduce((sum, f) => sum + f.estimatedTotalDuration, 0);
+        console.log(`   - ${totalDurationSum} minutes de contenu total estimé.`);
+        console.log(`   - Score qualité moyen: ${avgScore}/100`);
+    } else {
+        console.log('\n⚠️ Aucune formation n\'a été générée avec succès.');
     }
 
   } catch (error) {
-    console.error('💥 Erreur critique:', error.message);
+    console.error('💥 Erreur critique durant la génération:', error.message);
     console.error(error.stack);
   }
 }
