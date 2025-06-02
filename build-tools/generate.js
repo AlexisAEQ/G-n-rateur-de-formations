@@ -579,3 +579,452 @@ async function generateAdvancedFormations() {
 }
 
 generateAdvancedFormations();
+
+// Fonctions à ajouter dans generate.js pour le système enrichi
+
+// ==========================================
+// DÉTECTION DES ÉLÉMENTS INTERACTIFS
+// ==========================================
+
+function extractInteractiveElements(content) {
+  const elements = {
+    challenges: [],
+    quizzes: [],
+    simulations: [],
+    checkpoints: []
+  };
+  
+  // 1. Détecter les défis via regex améliorée
+  const challengeRegex = /### 🎯 ([^#\n]+)[\s\S]*?(?=###|$)/g;
+  let challengeMatch;
+  let challengeId = 1;
+  
+  while ((challengeMatch = challengeRegex.exec(content)) !== null) {
+    const challengeContent = challengeMatch[0];
+    const title = challengeMatch[1].trim();
+    
+    // Extraire les métadonnées du défi
+    const difficulty = challengeContent.match(/\*\*Difficulté\*\*\s*:\s*([^\n]+)/)?.[1]?.trim() || 'Moyen';
+    const xp = parseInt(challengeContent.match(/\*\*XP\*\*\s*:\s*(\d+)/)?.[1]) || (100 * challengeId);
+    const timeMatch = challengeContent.match(/\*\*Temps estimé\*\*\s*:\s*([^\n]+)/)?.[1]?.trim();
+    const estimatedTime = timeMatch ? parseInt(timeMatch.replace(/\D/g, '')) || 15 : 15;
+    
+    // Extraire la mission
+    const mission = challengeContent.match(/\*\*Mission\*\*\s*:\s*([^\n*]+)/)?.[1]?.trim() || '';
+    
+    // Extraire les critères de réussite
+    const criteria = extractSuccessCriteria(challengeContent);
+    
+    // Extraire les indices
+    const hint = challengeContent.match(/\*\*Indice\*\*\s*:\s*([^\n*]+)/)?.[1]?.trim();
+    
+    // Extraire les étapes
+    const steps = extractChallengeSteps(challengeContent);
+    
+    // Extraire la validation automatique
+    const validation = challengeContent.match(/\*\*Validation automatique\*\*\s*:\s*([^\n*]+)/)?.[1]?.trim();
+
+    elements.challenges.push({
+      id: `challenge-${challengeId}`,
+      title,
+      difficulty,
+      xp,
+      estimatedTime,
+      mission,
+      criteria,
+      hint,
+      steps,
+      validation,
+      content: challengeContent,
+      type: 'interactive',
+      unlocked: challengeId === 1 // Premier défi débloqué par défaut
+    });
+    
+    challengeId++;
+  }
+  
+  // 2. Détecter les quiz intégrés
+  const quizRegex = /### 📝 Quiz[^#\n]*[\s\S]*?(?=###|$)/g;
+  let quizMatch;
+  let quizId = 1;
+  
+  while ((quizMatch = quizRegex.exec(content)) !== null) {
+    const quizContent = quizMatch[0];
+    const questions = extractQuizQuestions(quizContent);
+    const passingGrade = parseInt(quizContent.match(/Seuil de réussite\s*:\s*(\d+)%/)?.[1]) || 75;
+    const timeLimit = parseInt(quizContent.match(/Temps limite\s*:\s*(\d+)/)?.[1]) || null;
+    
+    if (questions.length > 0) {
+      elements.quizzes.push({
+        id: `quiz-${quizId}`,
+        title: `Quiz ${quizId}`,
+        questions,
+        passingGrade,
+        timeLimit,
+        randomize: true,
+        showExplanations: true
+      });
+      quizId++;
+    }
+  }
+  
+  // 3. Détecter les simulations
+  const simulationRegex = /### 🖥️ Simulation[^#\n]*[\s\S]*?(?=###|$)/g;
+  let simMatch;
+  let simId = 1;
+  
+  while ((simMatch = simulationRegex.exec(content)) !== null) {
+    const simContent = simMatch[0];
+    const title = simContent.match(/### 🖥️ ([^#\n]+)/)?.[1]?.trim() || `Simulation ${simId}`;
+    const url = simContent.match(/\*\*URL\*\*\s*:\s*([^\n]+)/)?.[1]?.trim();
+    const type = simContent.match(/\*\*Type\*\*\s*:\s*([^\n]+)/)?.[1]?.trim() || 'iframe';
+    
+    if (url) {
+      elements.simulations.push({
+        id: `simulation-${simId}`,
+        title,
+        url,
+        type,
+        fullscreen: true
+      });
+      simId++;
+    }
+  }
+  
+  // 4. Détecter les checkpoints de progression
+  const checkpointRegex = /### ✅ Checkpoint[^#\n]*[\s\S]*?(?=###|$)/g;
+  let checkMatch;
+  let checkId = 1;
+  
+  while ((checkMatch = checkpointRegex.exec(content)) !== null) {
+    const checkContent = checkMatch[0];
+    const title = checkContent.match(/### ✅ ([^#\n]+)/)?.[1]?.trim() || `Checkpoint ${checkId}`;
+    const requirements = extractCheckpointRequirements(checkContent);
+    
+    elements.checkpoints.push({
+      id: `checkpoint-${checkId}`,
+      title,
+      requirements,
+      reward: 50 * checkId
+    });
+    checkId++;
+  }
+  
+  return elements;
+}
+
+function extractSuccessCriteria(content) {
+  const criteria = [];
+  const criteriaRegex = /\*\*Critères de réussite\*\*\s*:\s*([\s\S]*?)(?=\*\*|###|$)/;
+  const match = content.match(criteriaRegex);
+  
+  if (match) {
+    const criteriaText = match[1];
+    const items = criteriaText.match(/- \[ \] ([^\n]+)/g) || [];
+    
+    items.forEach((item, index) => {
+      const text = item.replace(/- \[ \] /, '').trim();
+      criteria.push({
+        id: index + 1,
+        text,
+        completed: false,
+        required: true
+      });
+    });
+  }
+  
+  return criteria;
+}
+
+function extractChallengeSteps(content) {
+  const steps = [];
+  const stepsRegex = /\*\*Étapes\*\*\s*:\s*([\s\S]*?)(?=\*\*|###|$)/;
+  const match = content.match(stepsRegex);
+  
+  if (match) {
+    const stepsText = match[1];
+    const items = stepsText.match(/\d+\.\s*([^\n]+)/g) || [];
+    
+    items.forEach((item, index) => {
+      const text = item.replace(/\d+\.\s*/, '').trim();
+      steps.push({
+        id: index + 1,
+        text,
+        completed: false
+      });
+    });
+  }
+  
+  return steps;
+}
+
+function extractQuizQuestions(quizContent) {
+  const questions = [];
+  
+  // Détecter les questions avec leur format
+  const questionRegex = /\*\*Question( \d+)?\*\*\s*:\s*([^\n]+)([\s\S]*?)(?=\*\*Question|\*\*Explication|###|$)/g;
+  let questionMatch;
+  let questionId = 1;
+  
+  while ((questionMatch = questionRegex.exec(quizContent)) !== null) {
+    const questionText = questionMatch[2].trim();
+    const questionContent = questionMatch[3];
+    
+    // Extraire les options
+    const options = [];
+    let correctAnswer = -1;
+    const optionMatches = questionContent.match(/- \[([ x])\] ([^\n]+)/g) || [];
+    
+    optionMatches.forEach((option, index) => {
+      const isCorrect = option.includes('[x]');
+      const text = option.replace(/- \[[ x]\] /, '').trim();
+      
+      options.push(text);
+      if (isCorrect) correctAnswer = index;
+    });
+    
+    // Extraire l'explication
+    const explanation = questionContent.match(/\*\*Explication\*\*\s*:\s*([^\n*]+)/)?.[1]?.trim();
+    
+    // Détecter le type de question
+    let type = 'multiple';
+    if (questionText.toLowerCase().includes('vrai ou faux')) {
+      type = 'boolean';
+    } else if (options.length === 0) {
+      type = 'text';
+    }
+    
+    if (questionText && (options.length > 0 || type === 'text')) {
+      questions.push({
+        id: questionId,
+        question: questionText,
+        type,
+        options,
+        correctAnswer,
+        explanation,
+        points: 10
+      });
+      questionId++;
+    }
+  }
+  
+  return questions;
+}
+
+function extractCheckpointRequirements(content) {
+  const requirements = [];
+  const reqRegex = /- \[ \] ([^\n]+)/g;
+  let match;
+  let reqId = 1;
+  
+  while ((match = reqRegex.exec(content)) !== null) {
+    requirements.push({
+      id: reqId,
+      text: match[1].trim(),
+      completed: false
+    });
+    reqId++;
+  }
+  
+  return requirements;
+}
+
+// ==========================================
+// GÉNÉRATION AUTOMATIQUE DE DÉFIS
+// ==========================================
+
+function generateAutoChallenges(objectives, difficulty = 'intermédiaire') {
+  const challenges = [];
+  const difficultyConfig = {
+    'débutant': { xpBase: 75, timeMultiplier: 1.2 },
+    'intermédiaire': { xpBase: 100, timeMultiplier: 1.0 },
+    'avancé': { xpBase: 150, timeMultiplier: 0.8 },
+    'expert': { xpBase: 200, timeMultiplier: 0.6 }
+  };
+  
+  const config = difficultyConfig[difficulty] || difficultyConfig.intermédiaire;
+  
+  objectives.forEach((objective, index) => {
+    const xp = config.xpBase * (index + 1);
+    const estimatedTime = Math.round(15 * config.timeMultiplier * (index + 1));
+    
+    challenges.push({
+      id: `auto-challenge-${index + 1}`,
+      title: `Mission ${index + 1}`,
+      difficulty,
+      xp,
+      estimatedTime,
+      mission: objective,
+      criteria: [
+        {
+          id: 1,
+          text: "Compréhension de l'objectif",
+          completed: false,
+          required: true
+        },
+        {
+          id: 2,
+          text: "Application pratique",
+          completed: false,
+          required: true
+        }
+      ],
+      steps: [
+        {
+          id: 1,
+          text: "Analyser l'objectif d'apprentissage",
+          completed: false
+        },
+        {
+          id: 2,
+          text: "Appliquer les concepts appris",
+          completed: false
+        },
+        {
+          id: 3,
+          text: "Valider la compréhension",
+          completed: false
+        }
+      ],
+      type: 'auto-generated',
+      unlocked: index === 0
+    });
+  });
+  
+  return challenges;
+}
+
+function generateAutoQuiz(content, moduleTitle) {
+  // Extraire les concepts clés du contenu
+  const concepts = extractKeyConcepts(content);
+  const questions = [];
+  
+  concepts.forEach((concept, index) => {
+    if (index < 3) { // Maximum 3 questions auto-générées
+      questions.push({
+        id: index + 1,
+        question: `Quelle est la définition de ${concept.term} ?`,
+        type: 'multiple',
+        options: [
+          concept.definition,
+          generateDistractor(concept),
+          generateDistractor(concept),
+          generateDistractor(concept)
+        ],
+        correctAnswer: 0,
+        explanation: `${concept.term} : ${concept.definition}`,
+        points: 10
+      });
+    }
+  });
+  
+  return {
+    id: 'auto-quiz',
+    title: `Quiz : ${moduleTitle}`,
+    questions,
+    passingGrade: 70,
+    randomize: true,
+    showExplanations: true
+  };
+}
+
+function extractKeyConcepts(content) {
+  const concepts = [];
+  const contentStr = String(content || '');
+  
+  // Détecter les définitions avec des patterns comme "Le/La X est..."
+  const definitionRegex = /(?:Le|La|Les|Un|Une)\s+([A-Z][a-zA-Zàâäéèêëïîôùûüÿç\s-]+)\s+(?:est|sont|désigne|représente)\s+([^.!?]+[.!?])/g;
+  let match;
+  
+  while ((match = definitionRegex.exec(contentStr)) !== null) {
+    const term = match[1].trim();
+    const definition = match[2].trim();
+    
+    if (term.length > 3 && term.length < 50 && definition.length > 10) {
+      concepts.push({
+        term,
+        definition: definition.replace(/[.!?]$/, '')
+      });
+    }
+  }
+  
+  return concepts;
+}
+
+function generateDistractor(concept) {
+  // Générer des distracteurs plausibles mais incorrects
+  const templates = [
+    `Une technique différente de ${concept.term.toLowerCase()}`,
+    `L'opposé de ${concept.term.toLowerCase()}`,
+    `Une variante complexe de ${concept.term.toLowerCase()}`
+  ];
+  
+  return templates[Math.floor(Math.random() * templates.length)];
+}
+
+// ==========================================
+// INTÉGRATION DANS LA FONCTION PRINCIPALE
+// ==========================================
+
+// Modifier extractAdvancedModules pour inclure les éléments interactifs
+function extractAdvancedModulesWithInteractivity(content) {
+  const modules = extractAdvancedModules(content); // Fonction existante
+  
+  // Ajouter les éléments interactifs à chaque module
+  modules.forEach(module => {
+    const interactiveElements = extractInteractiveElements(module.content);
+    
+    // Si pas d'éléments interactifs détectés, en générer automatiquement
+    if (interactiveElements.challenges.length === 0 && module.type !== 'introduction') {
+      // Générer des défis basés sur le contenu du module
+      const objectives = extractObjectivesFromContent(module.content);
+      if (objectives.length > 0) {
+        interactiveElements.challenges = generateAutoChallenges(objectives);
+      }
+    }
+    
+    if (interactiveElements.quizzes.length === 0 && module.content.length > 500) {
+      // Générer un quiz automatique pour les modules substantiels
+      const autoQuiz = generateAutoQuiz(module.content, module.title);
+      if (autoQuiz.questions.length > 0) {
+        interactiveElements.quizzes.push(autoQuiz);
+      }
+    }
+    
+    // Ajouter au module
+    module.interactiveElements = interactiveElements;
+    module.totalXP = interactiveElements.challenges.reduce((sum, c) => sum + c.xp, 0);
+    
+    // Mettre à jour les composants détectés
+    if (interactiveElements.challenges.length > 0) {
+      module.components.push({ type: 'ChallengeBlock', count: interactiveElements.challenges.length });
+    }
+    if (interactiveElements.quizzes.length > 0) {
+      module.components.push({ type: 'QuizBlock', count: interactiveElements.quizzes.length });
+    }
+    if (interactiveElements.simulations.length > 0) {
+      module.components.push({ type: 'SimulationBlock', count: interactiveElements.simulations.length });
+    }
+  });
+  
+  return modules;
+}
+
+function extractObjectivesFromContent(content) {
+  // Extraire des objectifs implicites du contenu
+  const objectives = [];
+  const contentStr = String(content || '');
+  
+  // Détecter les sections avec "Exercice", "Exemple", "Application"
+  const exerciseRegex = /(?:Exercice|Exemple|Application)\s*[:\-]?\s*([^#\n]+)/gi;
+  let match;
+  
+  while ((match = exerciseRegex.exec(contentStr)) !== null) {
+    const objective = match[1].trim();
+    if (objective.length > 10 && objective.length < 100) {
+      objectives.push(objective);
+    }
+  }
+  
+  return objectives;
+}

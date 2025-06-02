@@ -1,42 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, XCircle, Clock, Trophy, RotateCcw, ChevronRight, AlertCircle } from 'lucide-react';
+import { Brain, CheckCircle, XCircle, Clock, Trophy, RotateCcw, ChevronRight, ChevronLeft, Lightbulb, Target, Zap } from 'lucide-react';
 
-const QuizSection = ({ 
-  assessment, 
-  onComplete, 
-  primaryColor = '#1e40af',
-  passingGrade = 80 
-}) => {
+const EnhancedQuizBlock = ({ quiz, onComplete, primaryColor = '#10b981' }) => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState({});
   const [showResults, setShowResults] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(null);
   const [startTime, setStartTime] = useState(null);
   const [quizStarted, setQuizStarted] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
+  const [questionStartTime, setQuestionStartTime] = useState(null);
 
-  // Questions d'exemple basées sur l'évaluation
-  const questions = React.useMemo(() => {
-    if (!assessment?.exercises) return [];
-
-    // Générer des questions basées sur les exercices
-    return assessment.exercises.map((exercise, index) => ({
-      id: index + 1,
-      question: `Évaluation pratique : ${exercise}`,
-      type: 'multiple',
-      options: [
-        'Procédure correctement exécutée',
-        'Procédure partiellement exécutée',
-        'Procédure nécessite des corrections',
-        'Procédure non maîtrisée'
-      ],
-      correctAnswer: 0,
-      explanation: `Cette évaluation porte sur votre capacité à : ${exercise.toLowerCase()}`
-    }));
-  }, [assessment]);
-
-  // Timer pour le quiz
+  // Timer global du quiz
   useEffect(() => {
-    if (quizStarted && timeRemaining > 0) {
+    if (quizStarted && timeRemaining !== null && timeRemaining > 0 && !showResults) {
       const timer = setInterval(() => {
         setTimeRemaining(prev => {
           if (prev <= 1) {
@@ -49,222 +26,261 @@ const QuizSection = ({
 
       return () => clearInterval(timer);
     }
-  }, [quizStarted, timeRemaining]);
+  }, [quizStarted, timeRemaining, showResults]);
 
-  // Commencer le quiz
   const startQuiz = () => {
     setQuizStarted(true);
     setStartTime(Date.now());
-    setTimeRemaining(questions.length * 120); // 2 minutes par question
+    setQuestionStartTime(Date.now());
+    if (quiz.timeLimit) {
+      setTimeRemaining(quiz.timeLimit * 60); // Convert minutes to seconds
+    }
     setCurrentQuestion(0);
     setAnswers({});
     setShowResults(false);
+    setShowExplanation(false);
   };
 
-  // Redémarrer le quiz
   const restartQuiz = () => {
     startQuiz();
   };
 
-  // Répondre à une question
-  const handleAnswer = (questionId, answerIndex) => {
+  const handleAnswer = (questionId, answerIndex, answerText = null) => {
+    const questionTime = Date.now() - questionStartTime;
     setAnswers(prev => ({
       ...prev,
-      [questionId]: answerIndex
+      [questionId]: {
+        answer: answerIndex,
+        text: answerText,
+        timeSpent: questionTime
+      }
     }));
   };
 
-  // Passer à la question suivante
   const nextQuestion = () => {
-    if (currentQuestion < questions.length - 1) {
+    if (currentQuestion < quiz.questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
+      setQuestionStartTime(Date.now());
+      setShowExplanation(false);
     } else {
       handleSubmitQuiz();
     }
   };
 
-  // Question précédente
   const prevQuestion = () => {
     if (currentQuestion > 0) {
       setCurrentQuestion(currentQuestion - 1);
+      setQuestionStartTime(Date.now());
+      setShowExplanation(false);
     }
   };
 
-  // Soumettre le quiz
   const handleSubmitQuiz = () => {
     const endTime = Date.now();
-    const timeSpent = Math.floor((endTime - startTime) / 1000);
+    const totalTimeSpent = Math.floor((endTime - startTime) / 1000);
     
     setShowResults(true);
     setQuizStarted(false);
     
-    // Calculer le score
     const score = calculateScore();
+    const passed = score >= quiz.passingGrade;
     
-    // Sauvegarder les résultats
     const results = {
+      quizId: quiz.id,
       score,
-      timeSpent,
-      passed: score >= passingGrade,
+      passed,
+      totalTimeSpent,
       answers,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      questionsCorrect: quiz.questions.filter(q => 
+        answers[q.id] && answers[q.id].answer === q.correctAnswer
+      ).length
     };
     
-    localStorage.setItem('quiz-results', JSON.stringify(results));
+    localStorage.setItem(`quiz-results-${quiz.id}`, JSON.stringify(results));
     
     if (onComplete) {
       onComplete(results);
     }
   };
 
-  // Calculer le score
   const calculateScore = () => {
-    if (questions.length === 0) return 0;
+    if (quiz.questions.length === 0) return 0;
     
-    let correct = 0;
-    questions.forEach(question => {
-      if (answers[question.id] === question.correctAnswer) {
-        correct++;
+    let totalPoints = 0;
+    let earnedPoints = 0;
+    
+    quiz.questions.forEach(question => {
+      totalPoints += question.points || 10;
+      const userAnswer = answers[question.id];
+      
+      if (userAnswer) {
+        if (question.type === 'text') {
+          // Simple text matching for now - could be enhanced with fuzzy matching
+          const isCorrect = userAnswer.text?.toLowerCase().trim() === question.correctAnswer?.toLowerCase().trim();
+          if (isCorrect) earnedPoints += (question.points || 10);
+        } else {
+          if (userAnswer.answer === question.correctAnswer) {
+            earnedPoints += (question.points || 10);
+          }
+        }
       }
     });
     
-    return Math.round((correct / questions.length) * 100);
+    return Math.round((earnedPoints / totalPoints) * 100);
   };
 
-  // Formater le temps
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Si pas d'assessment, afficher un message
-  if (!assessment || !questions.length) {
-    return (
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
-        <AlertCircle size={48} className="mx-auto text-gray-400 mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
-          Aucune évaluation disponible
-        </h3>
-        <p className="text-gray-600">
-          Cette formation ne contient pas d'évaluation interactive.
-        </p>
-      </div>
-    );
-  }
+  const getQuestionTypeIcon = (type) => {
+    switch (type) {
+      case 'boolean': return '✓/✗';
+      case 'text': return '✍️';
+      default: return '📝';
+    }
+  };
+
+  const currentQ = quiz.questions[currentQuestion];
+  const progress = ((currentQuestion + 1) / quiz.questions.length) * 100;
 
   // Vue des résultats
   if (showResults) {
     const score = calculateScore();
-    const passed = score >= passingGrade;
+    const passed = score >= quiz.passingGrade;
     const timeSpent = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
 
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
+      <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6">
         <div className="text-center mb-6">
           {passed ? (
-            <Trophy size={64} className="mx-auto text-yellow-500 mb-4" />
+            <div className="text-green-500 mb-4">
+              <Trophy size={64} className="mx-auto animate-bounce" />
+            </div>
           ) : (
-            <XCircle size={64} className="mx-auto text-red-500 mb-4" />
+            <div className="text-red-500 mb-4">
+              <XCircle size={64} className="mx-auto" />
+            </div>
           )}
           
-          <h3 className="text-2xl font-bold mb-2">
-            {passed ? 'Félicitations !' : 'Résultat insuffisant'}
+          <h3 className="text-3xl font-bold mb-2 text-gray-800">
+            {passed ? '🎉 Excellent travail !' : '📚 Continuez vos efforts !'}
           </h3>
           
-          <div className="text-4xl font-bold mb-4" style={{ color: passed ? '#10b981' : '#ef4444' }}>
+          <div className={`text-6xl font-black mb-6 ${passed ? 'text-green-500' : 'text-red-500'}`}>
             {score}%
           </div>
           
-          <div className="grid grid-cols-3 gap-4 text-center mb-6">
-            <div className="bg-gray-50 rounded-lg p-3">
-              <div className="text-lg font-bold text-gray-900">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-4">
+              <div className="text-2xl font-bold text-blue-600">
                 {Object.keys(answers).length}
               </div>
-              <div className="text-sm text-gray-600">Questions répondues</div>
+              <div className="text-sm text-blue-700">Questions répondues</div>
             </div>
             
-            <div className="bg-gray-50 rounded-lg p-3">
-              <div className="text-lg font-bold text-green-600">
-                {questions.filter(q => answers[q.id] === q.correctAnswer).length}
+            <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-xl p-4">
+              <div className="text-2xl font-bold text-green-600">
+                {quiz.questions.filter(q => 
+                  answers[q.id] && answers[q.id].answer === q.correctAnswer
+                ).length}
               </div>
-              <div className="text-sm text-gray-600">Bonnes réponses</div>
+              <div className="text-sm text-green-700">Bonnes réponses</div>
             </div>
             
-            <div className="bg-gray-50 rounded-lg p-3">
-              <div className="text-lg font-bold text-gray-900">
+            <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl p-4">
+              <div className="text-2xl font-bold text-purple-600">
                 {formatTime(timeSpent)}
               </div>
-              <div className="text-sm text-gray-600">Temps écoulé</div>
+              <div className="text-sm text-purple-700">Temps total</div>
             </div>
           </div>
         </div>
 
         {/* Détail des réponses */}
-        <div className="space-y-4 mb-6">
-          <h4 className="font-medium text-gray-900">Détail des réponses :</h4>
-          
-          {questions.map((question, index) => {
-            const userAnswer = answers[question.id];
-            const isCorrect = userAnswer === question.correctAnswer;
+        {quiz.showExplanations && (
+          <div className="space-y-4 mb-6">
+            <h4 className="font-semibold text-gray-800 text-lg">📋 Détail des réponses</h4>
             
-            return (
-              <div key={question.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-start space-x-3">
-                  {isCorrect ? (
-                    <CheckCircle size={20} className="text-green-500 mt-1 flex-shrink-0" />
-                  ) : (
-                    <XCircle size={20} className="text-red-500 mt-1 flex-shrink-0" />
-                  )}
-                  
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-900 mb-2">
-                      Question {index + 1}: {question.question}
-                    </div>
+            {quiz.questions.map((question, index) => {
+              const userAnswer = answers[question.id];
+              const isCorrect = userAnswer && userAnswer.answer === question.correctAnswer;
+              
+              return (
+                <div key={question.id} className="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                  <div className="flex items-start space-x-3 mb-3">
+                    {isCorrect ? (
+                      <CheckCircle size={20} className="text-green-500 mt-1 flex-shrink-0" />
+                    ) : (
+                      <XCircle size={20} className="text-red-500 mt-1 flex-shrink-0" />
+                    )}
                     
-                    <div className="text-sm space-y-1">
-                      <div className={`${isCorrect ? 'text-green-700' : 'text-red-700'}`}>
-                        Votre réponse: {question.options[userAnswer] || 'Non répondue'}
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-800 mb-2">
+                        <span className="text-sm text-gray-500 mr-2">{getQuestionTypeIcon(question.type)}</span>
+                        {question.question}
                       </div>
                       
-                      {!isCorrect && (
-                        <div className="text-green-700">
-                          Bonne réponse: {question.options[question.correctAnswer]}
-                        </div>
-                      )}
-                      
-                      {question.explanation && (
-                        <div className="text-gray-600 italic mt-2">
-                          {question.explanation}
-                        </div>
-                      )}
+                      <div className="space-y-2 text-sm">
+                        {question.type === 'text' ? (
+                          <div>
+                            <div className={`${isCorrect ? 'text-green-700' : 'text-red-700'} font-medium`}>
+                              Votre réponse: "{userAnswer?.text || 'Non répondue'}"
+                            </div>
+                            {!isCorrect && (
+                              <div className="text-green-700 font-medium">
+                                Réponse attendue: "{question.correctAnswer}"
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div>
+                            <div className={`${isCorrect ? 'text-green-700' : 'text-red-700'} font-medium`}>
+                              Votre réponse: {question.options?.[userAnswer?.answer] || 'Non répondue'}
+                            </div>
+                            {!isCorrect && (
+                              <div className="text-green-700 font-medium">
+                                Bonne réponse: {question.options?.[question.correctAnswer]}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {question.explanation && (
+                          <div className="bg-blue-50 rounded-lg p-3 mt-2">
+                            <div className="flex items-start space-x-2">
+                              <Lightbulb size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                              <div className="text-blue-800 text-sm">{question.explanation}</div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex justify-center space-x-4">
           <button
             onClick={restartQuiz}
-            className="flex items-center space-x-2 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            className="flex items-center space-x-2 px-6 py-3 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-all duration-300 font-medium"
           >
             <RotateCcw size={20} />
-            <span>Reprendre l'évaluation</span>
+            <span>Reprendre le quiz</span>
           </button>
           
           {passed && (
-            <button
-              className="flex items-center space-x-2 px-6 py-3 text-white rounded-lg hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: primaryColor }}
-              onClick={() => onComplete && onComplete({ score, passed, timeSpent })}
-            >
+            <div className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-medium">
               <Trophy size={20} />
-              <span>Continuer</span>
-            </button>
+              <span>Quiz réussi !</span>
+            </div>
           )}
         </div>
       </div>
@@ -274,50 +290,52 @@ const QuizSection = ({
   // Vue de démarrage
   if (!quizStarted) {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
+      <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6">
         <div className="text-center">
-          <div 
-            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-white"
-            style={{ backgroundColor: primaryColor }}
-          >
-            <Clock size={32} />
+          <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+            <Brain size={36} className="text-white" />
           </div>
           
-          <h3 className="text-xl font-bold text-gray-900 mb-2">
-            Évaluation de la formation
+          <h3 className="text-2xl font-bold text-gray-800 mb-2">
+            {quiz.title}
           </h3>
           
           <p className="text-gray-600 mb-6">
-            Cette évaluation comprend {questions.length} questions pratiques.
-            Vous devez obtenir au moins {passingGrade}% pour réussir.
+            Testez vos connaissances avec ce quiz interactif.
           </p>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 text-center">
-            <div className="bg-blue-50 rounded-lg p-4">
-              <div className="text-2xl font-bold text-blue-600">{questions.length}</div>
-              <div className="text-sm text-gray-600">Questions</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-4">
+              <div className="text-2xl font-bold text-blue-600">{quiz.questions.length}</div>
+              <div className="text-sm text-blue-700">Questions</div>
             </div>
             
-            <div className="bg-green-50 rounded-lg p-4">
-              <div className="text-2xl font-bold text-green-600">{passingGrade}%</div>
-              <div className="text-sm text-gray-600">Note de passage</div>
+            <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-xl p-4">
+              <div className="text-2xl font-bold text-green-600">{quiz.passingGrade}%</div>
+              <div className="text-sm text-green-700">Note requise</div>
             </div>
             
-            <div className="bg-orange-50 rounded-lg p-4">
-              <div className="text-2xl font-bold text-orange-600">
-                {Math.ceil(questions.length * 2)}min
+            <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl p-4">
+              <div className="text-2xl font-bold text-purple-600">
+                {quiz.timeLimit || '∞'}
               </div>
-              <div className="text-sm text-gray-600">Temps alloué</div>
+              <div className="text-sm text-purple-700">Minutes allouées</div>
+            </div>
+            
+            <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-xl p-4">
+              <div className="text-2xl font-bold text-orange-600">
+                {quiz.questions.reduce((sum, q) => sum + (q.points || 10), 0)}
+              </div>
+              <div className="text-sm text-orange-700">Points total</div>
             </div>
           </div>
           
           <button
             onClick={startQuiz}
-            className="flex items-center space-x-2 px-8 py-3 text-white rounded-lg hover:opacity-90 transition-opacity mx-auto"
-            style={{ backgroundColor: primaryColor }}
+            className="flex items-center space-x-2 px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-400 hover:to-indigo-500 transition-all duration-300 mx-auto font-medium shadow-lg"
           >
-            <Clock size={20} />
-            <span>Commencer l'évaluation</span>
+            <Target size={24} />
+            <span>Commencer le quiz</span>
           </button>
         </div>
       </div>
@@ -325,83 +343,101 @@ const QuizSection = ({
   }
 
   // Vue du quiz en cours
-  const currentQ = questions[currentQuestion];
-  const progress = ((currentQuestion + 1) / questions.length) * 100;
-
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
-      {/* En-tête */}
+    <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-6">
+      {/* En-tête avec progression */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">
-            Question {currentQuestion + 1} sur {questions.length}
+          <h3 className="text-xl font-bold text-gray-800">
+            Question {currentQuestion + 1} sur {quiz.questions.length}
           </h3>
-          <div className="text-sm text-gray-600">
-            Évaluation de formation
+          <div className="text-sm text-gray-600 flex items-center space-x-2">
+            <span>{getQuestionTypeIcon(currentQ.type)}</span>
+            <span>{currentQ.type === 'boolean' ? 'Vrai/Faux' : currentQ.type === 'text' ? 'Réponse libre' : 'Choix multiple'}</span>
           </div>
         </div>
         
-        {timeRemaining && (
-          <div className="flex items-center space-x-2 text-right">
-            <Clock size={16} className="text-gray-400" />
-            <span className={`font-mono ${timeRemaining < 60 ? 'text-red-600' : 'text-gray-700'}`}>
+        {timeRemaining !== null && (
+          <div className="text-right">
+            <div className={`text-2xl font-bold ${timeRemaining < 60 ? 'text-red-600' : 'text-gray-700'}`}>
               {formatTime(timeRemaining)}
-            </span>
+            </div>
+            <div className="text-xs text-gray-500">Temps restant</div>
           </div>
         )}
       </div>
 
       {/* Barre de progression */}
-      <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
+      <div className="w-full bg-gray-200 rounded-full h-3 mb-6 overflow-hidden">
         <div
-          className="h-2 rounded-full transition-all duration-300"
-          style={{ 
-            width: `${progress}%`, 
-            backgroundColor: primaryColor 
-          }}
+          className="h-3 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full transition-all duration-500"
+          style={{ width: `${progress}%` }}
         />
       </div>
 
       {/* Question */}
       <div className="mb-6">
-        <h4 className="text-xl font-medium text-gray-900 mb-4">
+        <h4 className="text-xl font-medium text-gray-800 mb-6 leading-relaxed">
           {currentQ.question}
         </h4>
         
-        <div className="space-y-3">
-          {currentQ.options.map((option, index) => (
-            <label
-              key={index}
-              className={`flex items-center space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                answers[currentQ.id] === index
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <input
-                type="radio"
-                name={`question-${currentQ.id}`}
-                value={index}
-                checked={answers[currentQ.id] === index}
-                onChange={() => handleAnswer(currentQ.id, index)}
-                className="sr-only"
-              />
-              
-              <div 
-                className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                  answers[currentQ.id] === index
-                    ? 'border-blue-500'
-                    : 'border-gray-300'
+        {currentQ.type === 'text' ? (
+          /* Réponse libre */
+          <div className="space-y-4">
+            <textarea
+              placeholder="Tapez votre réponse ici..."
+              value={answers[currentQ.id]?.text || ''}
+              onChange={(e) => handleAnswer(currentQ.id, null, e.target.value)}
+              className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-colors resize-none"
+              rows="4"
+            />
+          </div>
+        ) : (
+          /* Choix multiple / Vrai-Faux */
+          <div className="space-y-3">
+            {currentQ.options?.map((option, index) => (
+              <label
+                key={index}
+                className={`flex items-center space-x-4 p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
+                  answers[currentQ.id]?.answer === index
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                {answers[currentQ.id] === index && (
-                  <div className="w-2 h-2 rounded-full bg-blue-500" />
-                )}
-              </div>
-              
-              <span className="text-gray-900">{option}</span>
-            </label>
-          ))}
+                <input
+                  type="radio"
+                  name={`question-${currentQ.id}`}
+                  value={index}
+                  checked={answers[currentQ.id]?.answer === index}
+                  onChange={() => handleAnswer(currentQ.id, index)}
+                  className="sr-only"
+                />
+                
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                  answers[currentQ.id]?.answer === index
+                    ? 'border-blue-500 bg-blue-500'
+                    : 'border-gray-300'
+                }`}>
+                  {answers[currentQ.id]?.answer === index && (
+                    <div className="w-2 h-2 rounded-full bg-white" />
+                  )}
+                </div>
+                
+                <span className="text-gray-800 flex-1">{option}</span>
+              </label>
+            ))}
+          </div>
+        )}
+        
+        {/* Points pour cette question */}
+        <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
+          <span>Points: {currentQ.points || 10}</span>
+          {answers[currentQ.id] && (
+            <span className="flex items-center space-x-1 text-green-600">
+              <CheckCircle size={14} />
+              <span>Répondue</span>
+            </span>
+          )}
         </div>
       </div>
 
@@ -410,24 +446,39 @@ const QuizSection = ({
         <button
           onClick={prevQuestion}
           disabled={currentQuestion === 0}
-          className="flex items-center space-x-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center space-x-2 px-4 py-2 text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
         >
-          <ChevronRight size={16} className="rotate-180" />
+          <ChevronLeft size={16} />
           <span>Précédent</span>
         </button>
 
-        <div className="text-sm text-gray-600">
-          {Object.keys(answers).length} / {questions.length} répondues
+        <div className="flex items-center space-x-4 text-sm text-gray-600">
+          <span>{Object.keys(answers).length} / {quiz.questions.length} répondues</span>
+          {quiz.questions.length > 1 && (
+            <div className="flex space-x-1">
+              {quiz.questions.map((_, index) => (
+                <div
+                  key={index}
+                  className={`w-2 h-2 rounded-full ${
+                    index === currentQuestion
+                      ? 'bg-blue-500'
+                      : answers[quiz.questions[index].id]
+                        ? 'bg-green-400'
+                        : 'bg-gray-300'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         <button
           onClick={nextQuestion}
-          disabled={answers[currentQ.id] === undefined}
-          className="flex items-center space-x-2 px-4 py-2 text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-          style={{ backgroundColor: primaryColor }}
+          disabled={!answers[currentQ.id]}
+          className="flex items-center space-x-2 px-6 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-400 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium"
         >
           <span>
-            {currentQuestion === questions.length - 1 ? 'Terminer' : 'Suivant'}
+            {currentQuestion === quiz.questions.length - 1 ? 'Terminer' : 'Suivant'}
           </span>
           <ChevronRight size={16} />
         </button>
@@ -436,4 +487,4 @@ const QuizSection = ({
   );
 };
 
-export default QuizSection;
+export default EnhancedQuizBlock;

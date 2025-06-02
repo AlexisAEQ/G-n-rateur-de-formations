@@ -2,7 +2,7 @@
   "app": {
     "name": "Formation Generator",
     "version": "1.0.2",
-    "buildDate": "2025-06-02T14:18:51.274Z"
+    "buildDate": "2025-06-02T18:38:24.165Z"
   },
   "formations": {
     "basePath": "/formations",
