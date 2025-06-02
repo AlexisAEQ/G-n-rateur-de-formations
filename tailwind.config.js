@@ -134,6 +134,9 @@ export default {
     }
   },
   plugins: [
+    // Plugin Typography pour les classes prose
+    require('@tailwindcss/typography'),
+    
     // Plugin pour les classes utilitaires personnalisées
     function({ addUtilities, addComponents, theme }) {
       // Utilitaires pour les callouts
