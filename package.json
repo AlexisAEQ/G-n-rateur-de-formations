@@ -16,6 +16,7 @@
     "analyze": "npm run build && npx vite-bundle-analyzer dist/stats.html"
   },
   "dependencies": {
+    "@tailwindcss/postcss": "^4.1.8",
     "framer-motion": "^10.16.0",
     "gray-matter": "^4.0.3",
     "lucide-react": "^0.263.1",

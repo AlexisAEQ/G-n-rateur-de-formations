@@ -1,18 +1,18 @@
 {
   "totalFormations": 1,
-  "lastGenerated": "2025-05-28T21:01:37.204Z",
+  "lastGenerated": "2025-06-02T13:46:48.370Z",
   "formations": [
     {
-      "slug": "formation-maths-robotique",
+      "slug": "formation_maths_robotique",
       "title": "Mathématiques pour Techniciens en Robotique",
       "type": "skills",
-      "company": "Institut Technique Avancé",
-      "duration": 240,
-      "difficulty": "intermédiaire",
+      "company": "AEQ",
+      "duration": 150,
+      "difficulty": "Avancée",
       "moduleCount": 6,
-      "estimatedDuration": 178,
+      "estimatedDuration": 159,
       "qualityScore": 100,
-      "components": "SkillsTemplate",
+      "template": "SkillsTemplate",
       "features": [
         "progression",
         "exercises",
@@ -23,10 +23,10 @@
   ],
   "searchIndex": [
     {
-      "slug": "formation-maths-robotique",
+      "slug": "formation_maths_robotique",
       "title": "Mathématiques pour Techniciens en Robotique",
       "type": "skills",
-      "searchText": "mathématiques pour techniciens en robotique \udcd0 module 1 : systèmes de coordonnées et repères \udd04 module 2 : transformations géométriques \udfc3 module 3 : cinématique et dynamique \uddee module 4 : algèbre vectorielle et matricielle \udccf module 5 : trigonométrie appliquée module 6 : applications pratiques et résolution de problèmes maîtriser les systèmes de coordonnées et transformations géométriques en robotique calculer les vitesses et accélérations dans les mouvements robotiques appliquer la trigonométrie pour résoudre des problèmes de positionnement utiliser l'algèbre vectorielle pour analyser les forces et déplacements comprendre les matrices de transformation homogène résoudre des problèmes de cinématique directe et inverse mathématiques de niveau collégial notions de base en physique mécanique expérience pratique avec des systèmes robotiques capacité à utiliser une calculatrice scientifique"
+      "searchText": "mathmatiques pour techniciens en robotique  module 1  systmes de coordonnes et repres  module 2  transformations gomtriques  module 3  cinmatique et dynamique  module 4  algbre vectorielle et matricielle  module 5  trigonomtrie applique module 6  applications pratiques et rsolution de problmes matriser les systmes de coordonnes et transformations gomtriques en robotique calculer les vitesses et acclrations dans les mouvements robotiques appliquer la trigonomtrie pour rsoudre des problmes de positionnement utiliser lalgbre vectorielle pour analyser les forces et dplacements comprendre les matrices de transformation homogne rsoudre des problmes de cinmatique directe et inverse mathmatiques de niveau collgial notions de base en physique mcanique exprience pratique avec des systmes robotiques capacit  utiliser une calculatrice scientifique"
     }
   ]
 }
