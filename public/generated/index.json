@@ -1,6 +1,6 @@
 {
   "totalFormations": 1,
-  "lastGenerated": "2025-06-02T13:46:48.370Z",
+  "lastGenerated": "2025-06-02T14:18:51.273Z",
   "formations": [
     {
       "slug": "formation_maths_robotique",
@@ -26,7 +26,7 @@
       "slug": "formation_maths_robotique",
       "title": "Mathématiques pour Techniciens en Robotique",
       "type": "skills",
-      "searchText": "mathmatiques pour techniciens en robotique  module 1  systmes de coordonnes et repres  module 2  transformations gomtriques  module 3  cinmatique et dynamique  module 4  algbre vectorielle et matricielle  module 5  trigonomtrie applique module 6  applications pratiques et rsolution de problmes matriser les systmes de coordonnes et transformations gomtriques en robotique calculer les vitesses et acclrations dans les mouvements robotiques appliquer la trigonomtrie pour rsoudre des problmes de positionnement utiliser lalgbre vectorielle pour analyser les forces et dplacements comprendre les matrices de transformation homogne rsoudre des problmes de cinmatique directe et inverse mathmatiques de niveau collgial notions de base en physique mcanique exprience pratique avec des systmes robotiques capacit  utiliser une calculatrice scientifique"
+      "searchText": "mathmatiques pour techniciens en robotique module 1  systmes de coordonnes et repres module 2  transformations gomtriques module 3  cinmatique et dynamique module 4  algbre vectorielle et matricielle module 5  trigonomtrie applique module 6  applications pratiques et rsolution de problmes matriser les systmes de coordonnes et transformations gomtriques en robotique calculer les vitesses et acclrations dans les mouvements robotiques appliquer la trigonomtrie pour rsoudre des problmes de positionnement utiliser lalgbre vectorielle pour analyser les forces et dplacements comprendre les matrices de transformation homogne rsoudre des problmes de cinmatique directe et inverse mathmatiques de niveau collgial notions de base en physique mcanique exprience pratique avec des systmes robotiques capacit  utiliser une calculatrice scientifique"
     }
   ]
 }

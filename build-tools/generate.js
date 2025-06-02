@@ -4,7 +4,7 @@ import { glob } from 'glob';
 import matter from 'gray-matter';
 import { marked } from 'marked';
 
-console.log('🚀 GÉNÉRATION AVANCÉE AVEC TOUS LES OUTILS (VERSION MODIFIÉE POUR MIEUX INTÉGRER enhanced_tailwind_css)');
+console.log('🚀 GÉNÉRATION AVANCÉE AVEC CORRECTION DU BUG [object Object]');
 
 // ==========================================
 // CONFIGURATION DES OUTILS DISPONIBLES
@@ -13,25 +13,22 @@ console.log('🚀 GÉNÉRATION AVANCÉE AVEC TOUS LES OUTILS (VERSION MODIFIÉE 
 // Configuration Marked avec renderer personnalisé
 const renderer = new marked.Renderer();
 
-// Personnaliser les titres pour être stylisés par prose et enhanced_tailwind_css
+// Personnaliser les titres pour être stylisés par prose
 renderer.heading = function(text, level) {
   const cleanText = String(text || '').trim();
   const id = cleanText.toLowerCase()
-    .replace(/[^\w\s-]/g, '') // Supprimer les caractères non alphanumériques sauf espaces et tirets
-    .replace(/\s+/g, '-')     // Remplacer les espaces par des tirets
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
     .trim();
   
-  // Génère des titres "propres", laissant prose (via .module-content) gérer le style.
-  // Les styles pour h1, h2, etc. (y compris les effets de survol) dans enhanced_tailwind_css s'appliqueront.
   return `<h${level} id="${id}">${cleanText}</h${level}>`;
 };
 
-// Personnaliser les liens pour être stylisés par prose et enhanced_tailwind_css
+// Personnaliser les liens
 renderer.link = function(href, title, text) {
   const titleAttr = title ? ` title="${title}"` : '';
   const isExternal = String(href || '').startsWith('http');
   
-  // Génère des liens "propres". Les styles de .module-content a dans enhanced_tailwind_css s'appliqueront.
   if (isExternal) {
     return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
   }
@@ -39,29 +36,21 @@ renderer.link = function(href, title, text) {
   return `<a href="${href}"${titleAttr}>${text}</a>`;
 };
 
-// Personnaliser les blockquotes pour les callouts, en utilisant les classes de enhanced_tailwind_css
+// Personnaliser les blockquotes pour les callouts
 renderer.blockquote = function(quote) {
   const quoteStr = String(quote || '');
-  // Retirer le <p></p> potentiellement ajouté par marked à l'intérieur du blockquote pour les callouts
   const innerContent = quoteStr.replace(/^<p>|<\/p>$/g, '');
 
-  if (quoteStr.includes('📹')) { // Vidéo
-    // Utilise la classe .video-callout définie dans enhanced_tailwind_css
+  if (quoteStr.includes('📹')) {
     return `<div class="video-callout">${innerContent}</div>`;
-  } else if (quoteStr.includes('⚠️')) { // Avertissement
-    // Utilise la classe .warning-callout définie dans enhanced_tailwind_css
+  } else if (quoteStr.includes('⚠️')) {
     return `<div class="warning-callout">${innerContent}</div>`;
-  } else if (quoteStr.includes('💡')) { // Astuce
-    // Utilise la classe .tip-callout définie dans enhanced_tailwind_css
+  } else if (quoteStr.includes('💡')) {
     return `<div class="tip-callout">${innerContent}</div>`;
-  } else if (quoteStr.includes('🔐')) { // Sécurité (mapped to warning-callout for red theme)
-    // Utilise la classe .warning-callout (thème rouge) pour la sécurité.
-    // Vous pourriez créer une classe .safety-callout distincte dans enhanced_tailwind_css si besoin.
+  } else if (quoteStr.includes('🔐')) {
     return `<div class="warning-callout">${innerContent}</div>`;
   }
   
-  // Pour les blockquotes standard, génère une balise simple.
-  // Les styles de .module-content blockquote dans enhanced_tailwind_css s'appliqueront.
   return `<blockquote>${quote}</blockquote>`;
 };
 
@@ -71,14 +60,13 @@ marked.setOptions({
   pedantic: false,
   gfm: true,
   breaks: false,
-  sanitize: false, // Soyez conscient des implications de sécurité si le contenu Markdown n'est pas sûr
+  sanitize: false,
   smartypants: true,
   xhtml: false
 });
 
 // ==========================================
 // TEMPLATES ET COMPOSANTS DISPONIBLES
-// (Pas de changement ici, sauf si la logique de mapping doit changer)
 // ==========================================
 
 const TEMPLATES = {
@@ -110,7 +98,6 @@ const TEMPLATES = {
 
 // ==========================================
 // FONCTIONS UTILITAIRES SÉCURISÉES
-// (Pas de changement majeur ici, cleanObject et safeMarkdown sont utiles)
 // ==========================================
 
 function cleanObject(obj) {
@@ -147,12 +134,28 @@ function safeMarkdown(content) {
     const contentStr = String(content || '').trim();
     if (!contentStr) return '';
     
-    const cleanedContent = contentStr.replace(/\[object Object\]/g, '');
+    // Nettoyer le contenu des objets stringifiés
+    const cleanedContent = contentStr
+      .replace(/\[object Object\]/g, '')
+      .replace(/\{[^}]*\}/g, '') // Supprimer les objets JSON inline
+      .trim();
     
-    return marked(cleanedContent);
+    if (!cleanedContent) return '<p>Contenu vide</p>';
+    
+    // Convertir en HTML avec marked
+    const htmlResult = marked(cleanedContent);
+    
+    // Vérifier que le résultat est une string
+    if (typeof htmlResult !== 'string') {
+      console.error('marked() n\'a pas retourné une string:', typeof htmlResult);
+      return `<p>${cleanedContent.substring(0, 200)}...</p>`;
+    }
+    
+    return htmlResult;
   } catch (error) {
-    console.log(`   ⚠️  Erreur markdown ignorée: ${error.message}`);
-    return `<p>${String(content || '')}</p>`; // Fallback simple
+    console.error(`Erreur markdown:`, error.message);
+    const safeContent = String(content || '').substring(0, 100);
+    return `<p>Erreur de parsing: ${safeContent}...</p>`;
   }
 }
 
@@ -180,7 +183,22 @@ function detectFormationType(frontMatter, content) {
 function extractAdvancedModules(content) {
   const modules = [];
   const contentStr = String(content || '');
-  // Utiliser une expression régulière pour mieux capturer les titres de module H1 Markdown
+  
+  if (!contentStr.trim()) {
+    return [{
+      id: 'empty-content',
+      title: 'Contenu vide',
+      titleWithEmoji: '📄 Contenu vide',
+      emoji: '📄',
+      order: 1,
+      content: 'Aucun contenu disponible',
+      htmlContent: '<p>Aucun contenu disponible</p>',
+      components: [],
+      estimatedDuration: 5,
+      type: 'content'
+    }];
+  }
+  
   const moduleRegex = /^#\s+(.+?)\s*$/gm;
   let match;
   let lastIndex = 0;
@@ -193,15 +211,19 @@ function extractAdvancedModules(content) {
       if (modules.length > 0) {
         const prevModule = modules[modules.length - 1];
         prevModule.content = previousModuleContent;
-        prevModule.htmlContent = safeMarkdown(previousModuleContent);
+        
+        // CORRECTION CRITIQUE: S'assurer que htmlContent est une string
+        const htmlResult = safeMarkdown(previousModuleContent);
+        prevModule.htmlContent = typeof htmlResult === 'string' ? htmlResult : '<p>Erreur de conversion HTML</p>';
+        
         prevModule.components = extractModuleComponents(previousModuleContent);
         prevModule.estimatedDuration = calculateDuration(previousModuleContent);
       }
     }
 
     const titleWithEmoji = match[1].trim();
-    const title = titleWithEmoji.replace(/^[🤖⚙️🎯🛡️📚🔧🔍📝📊✅🚨📄]+\s*/, '').trim();
-    const emoji = titleWithEmoji.match(/^[🤖⚙️🎯🛡️📚🔧🔍📝📊✅🚨📄]+/)?.[0] || '📄';
+    const title = titleWithEmoji.replace(/^[🤖⚙️🎯🛡️📚🔧🔍📝📊✅🚨📄📐🔄🏃🧮📏]+\s*/, '').trim();
+    const emoji = titleWithEmoji.match(/^[🤖⚙️🎯🛡️📚🔧🔍📝📊✅🚨📄📐🔄🏃🧮📏]+/)?.[0] || '📄';
     
     const id = title.toLowerCase()
       .replace(/[^\w\s-]/g, '')
@@ -214,8 +236,8 @@ function extractAdvancedModules(content) {
       titleWithEmoji: titleWithEmoji,
       emoji: emoji,
       order: order++,
-      content: '', // Sera rempli avec le contenu jusqu'au prochain H1 ou la fin
-      htmlContent: '',
+      content: '',
+      htmlContent: '', // S'assurer que c'est initialisé comme string
       components: [],
       estimatedDuration: 0,
       type: detectModuleType(titleWithEmoji)
@@ -228,31 +250,44 @@ function extractAdvancedModules(content) {
     const lastModuleContent = contentStr.substring(lastIndex).trim();
     const lastMod = modules[modules.length - 1];
     lastMod.content = lastModuleContent;
-    lastMod.htmlContent = safeMarkdown(lastModuleContent);
+    
+    // CORRECTION CRITIQUE: S'assurer que htmlContent est une string
+    const htmlResult = safeMarkdown(lastModuleContent);
+    lastMod.htmlContent = typeof htmlResult === 'string' ? htmlResult : '<p>Erreur de conversion HTML</p>';
+    
     lastMod.components = extractModuleComponents(lastModuleContent);
     lastMod.estimatedDuration = calculateDuration(lastModuleContent);
   } else if (contentStr && modules.length === 0) {
-    // Gérer le cas où il n'y a pas de H1 pour les modules, mais il y a du contenu
-    // Considérer l'ensemble du contenu comme un seul module
+    // Cas où il n'y a pas de H1, traiter tout comme un module
     const title = "Contenu Principal";
     const id = "main-content";
+    
+    const htmlResult = safeMarkdown(contentStr);
+    
     modules.push({
-        id: id,
-        title: title,
-        titleWithEmoji: `📄 ${title}`,
-        emoji: '📄',
-        order: 1,
-        content: contentStr,
-        htmlContent: safeMarkdown(contentStr),
-        components: extractModuleComponents(contentStr),
-        estimatedDuration: calculateDuration(contentStr),
-        type: 'content'
+      id: id,
+      title: title,
+      titleWithEmoji: `📄 ${title}`,
+      emoji: '📄',
+      order: 1,
+      content: contentStr,
+      htmlContent: typeof htmlResult === 'string' ? htmlResult : '<p>Erreur de conversion HTML</p>',
+      components: extractModuleComponents(contentStr),
+      estimatedDuration: calculateDuration(contentStr),
+      type: 'content'
     });
   }
   
+  // Validation finale: s'assurer que tous les htmlContent sont des strings
+  modules.forEach((module, index) => {
+    if (typeof module.htmlContent !== 'string') {
+      console.error(`Module ${index} htmlContent n'est pas une string:`, typeof module.htmlContent);
+      module.htmlContent = '<p>Erreur: contenu HTML invalide</p>';
+    }
+  });
+  
   return modules;
 }
-
 
 function detectModuleType(title) {
   const titleLower = String(title || '').toLowerCase();
@@ -287,7 +322,6 @@ function extractModuleComponents(content) {
     components.push({ type: 'SafetyChecklist', detected: true });
   }
   if (contentStr.includes('⚠️') || contentStr.includes('💡') || contentStr.includes('🔐')) {
-    // Note: le renderer.blockquote s'occupe de la transformation en HTML avec la bonne classe
     components.push({ type: 'CalloutBox', detected: true });
   }
   
@@ -312,7 +346,7 @@ function calculateDuration(content) {
   });
   
   const callouts = (contentStr.match(/[📹⚠️💡🔐]/g) || []).length;
-  interactiveTime += callouts * 1; // Réduit à 1 min par callout pour ne pas surévaluer
+  interactiveTime += callouts * 1;
   
   return Math.max(readingTime + interactiveTime, 5);
 }
@@ -329,9 +363,9 @@ function generateComponentMapping(formation) {
       modules: (formation.modules || []).map(module => ({
         component: 'ModuleCard',
         props: {
-          module: module, // Assurez-vous que l'objet module complet est passé
-          formationTitle: formation.title, // Exemple de prop supplémentaire
-          primaryColor: formation.primary_color // Passer les couleurs si ModuleCard les utilise
+          module: module,
+          formationTitle: formation.title,
+          primaryColor: formation.primary_color
         }
       })),
       resources: formation.resources ? 'ResourceList' : null,
@@ -388,7 +422,7 @@ async function generateAdvancedFormations() {
 
     for (const filePath of files) {
       const filename = path.basename(filePath);
-      console.log(`\n⚙️  Traitement avancé: ${filename}`);
+      console.log(`\n⚙️  Traitement: ${filename}`);
 
       try {
         const content = await fs.readFile(filePath, 'utf8');
@@ -401,33 +435,41 @@ async function generateAdvancedFormations() {
           frontMatter = parsed.data || {};
           markdownContent = parsed.content || '';
         } catch (parseError) {
-          console.log(`   ⚠️  Erreur parsing front matter pour ${filename}: ${parseError.message}`);
-          console.log(`   ℹ️  Utilisation du contenu brut pour ${filename}`);
+          console.log(`   ⚠️  Erreur parsing front matter: ${parseError.message}`);
+          console.log(`   ℹ️  Utilisation du contenu brut`);
         }
 
         frontMatter = cleanObject(frontMatter);
 
         const detectedType = detectFormationType(frontMatter, markdownContent);
-        console.log(`   🎯 Type détecté pour ${filename}: ${detectedType}`);
+        console.log(`   🎯 Type détecté: ${detectedType}`);
 
         const modules = extractAdvancedModules(markdownContent);
-        console.log(`   📚 ${modules.length} module(s) trouvé(s) dans ${filename}`);
-        if (modules.length === 0 && markdownContent.trim() !== '') {
-            console.log(`   ⚠️ Aucun module (titre H1) détecté dans ${filename} alors que du contenu est présent. Le contenu sera traité comme un seul module.`);
+        console.log(`   📚 ${modules.length} module(s) trouvé(s)`);
+
+        // Validation des modules
+        const validModules = modules.filter(module => {
+          if (typeof module.htmlContent !== 'string') {
+            console.error(`   ❌ Module ${module.id} a un htmlContent invalide`);
+            return false;
+          }
+          return true;
+        });
+
+        if (validModules.length !== modules.length) {
+          console.log(`   ⚠️  ${modules.length - validModules.length} module(s) rejeté(s) pour htmlContent invalide`);
         }
 
-
-        const estimatedTotalDuration = modules.reduce((total, module) => 
+        const estimatedTotalDuration = validModules.reduce((total, module) => 
           total + (module.estimatedDuration || 0), 0);
 
         const slug = (frontMatter.slug || path.basename(filePath, '.md'))
           .toLowerCase()
-          .replace(/[^\w\s-]/g, '') // Supprimer les caractères spéciaux sauf espaces et tirets
-          .replace(/\s+/g, '-')     // Remplacer les espaces par des tirets
-          .replace(/-+/g, '-')      // Remplacer les tirets multiples par un seul
-          .replace(/^-|-$/g, '')    // Supprimer les tirets en début/fin
-          || 'formation-sans-nom'; // Fallback pour slug vide
-
+          .replace(/[^\w\s-]/g, '')
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-')
+          .replace(/^-|-$/g, '')
+          || 'formation-sans-nom';
 
         const formation = {
           ...frontMatter,
@@ -439,14 +481,13 @@ async function generateAdvancedFormations() {
           slug: slug,
           filename: filename,
           lastProcessed: new Date().toISOString(),
-          generatorVersion: '1.0.1', // Version updated
-          modules: modules,
-          moduleCount: modules.length,
+          generatorVersion: '1.0.2',
+          modules: validModules,
+          moduleCount: validModules.length,
           estimatedTotalDuration: estimatedTotalDuration,
-          tableOfContents: modules.map(module => ({
+          tableOfContents: validModules.map(module => ({
             id: module.id,
-            title: module.titleWithEmoji, // Utiliser titleWithEmoji pour la TOC
-            // emoji: module.emoji, // Déjà dans titleWithEmoji
+            title: module.titleWithEmoji,
             order: module.order,
             duration: module.estimatedDuration,
             type: module.type,
@@ -454,86 +495,81 @@ async function generateAdvancedFormations() {
           })),
           searchableContent: [
             frontMatter.title,
-            ...modules.map(m => m.title), // Utiliser title simple pour la recherche
+            ...validModules.map(m => m.title),
             ...(frontMatter.learning_objectives || []),
             ...(frontMatter.prerequisites || [])
-          ].filter(Boolean).join(' ').toLowerCase().replace(/[^\w\s-]/g, ''), // Nettoyer le contenu de recherche
-          qualityScore: calculateQualityScore(modules, frontMatter),
-          rawContent: markdownContent, // Le contenu Markdown brut original des modules combinés
-          // htmlContent global n'est plus pertinent si chaque module a son htmlContent
+          ].filter(Boolean).join(' ').toLowerCase().replace(/[^\w\s-]/g, ''),
+          qualityScore: calculateQualityScore(validModules, frontMatter),
+          rawContent: markdownContent,
         };
         
-        // Nettoyage final de l'objet formation complet
         const cleanedFormation = cleanObject(formation);
-        
-        // Le componentMapping est généré sur l'objet formation nettoyé
         cleanedFormation.componentMapping = generateComponentMapping(cleanedFormation);
-
 
         formations.push(cleanedFormation);
 
         await fs.writeJSON(`./public/generated/${slug}.json`, cleanedFormation, { spaces: 2 });
-        console.log(`   ✅ ${slug}.json (score: ${cleanedFormation.qualityScore}/100) généré.`);
+        console.log(`   ✅ ${slug}.json (score: ${cleanedFormation.qualityScore}/100) généré`);
 
       } catch (error) {
         console.log(`   ❌ Erreur lors du traitement de ${filename}: ${error.message}`);
-        console.log(`   📝 Stack: ${error.stack.split('\n').slice(0,3).join('\n')}`); // Short stack
+        console.log(`   📝 Stack: ${error.stack.split('\n').slice(0,3).join('\n')}`);
       }
     }
 
     if (formations.length > 0) {
-        console.log('\n📋 Génération de l\'index enrichi...');
-        const index = {
-          totalFormations: formations.length,
-          lastGenerated: new Date().toISOString(),
-          formations: formations.map(f => ({
-            slug: f.slug,
-            title: f.title,
-            type: f.type,
-            company: f.company,
-            duration: f.duration, // Conserver la durée originale ou estimée
-            difficulty: f.difficulty,
-            moduleCount: f.moduleCount,
-            estimatedDuration: f.estimatedTotalDuration, // Durée calculée
-            qualityScore: f.qualityScore,
-            template: f.componentMapping ? f.componentMapping.template : 'GeneralTemplate',
-            features: f.componentMapping ? f.componentMapping.features : []
-          })),
-          searchIndex: formations.map(f => ({
-            slug: f.slug,
-            title: f.title,
-            type: f.type,
-            searchText: f.searchableContent || ''
-          }))
-        };
-        await fs.writeJSON('./public/generated/index.json', index, { spaces: 2 });
-        console.log('   ✅ index.json généré.');
+      console.log('\n📋 Génération de l\'index...');
+      const index = {
+        totalFormations: formations.length,
+        lastGenerated: new Date().toISOString(),
+        formations: formations.map(f => ({
+          slug: f.slug,
+          title: f.title,
+          type: f.type,
+          company: f.company,
+          duration: f.duration,
+          difficulty: f.difficulty,
+          moduleCount: f.moduleCount,
+          estimatedDuration: f.estimatedTotalDuration,
+          qualityScore: f.qualityScore,
+          template: f.componentMapping ? f.componentMapping.template : 'GeneralTemplate',
+          features: f.componentMapping ? f.componentMapping.features : []
+        })),
+        searchIndex: formations.map(f => ({
+          slug: f.slug,
+          title: f.title,
+          type: f.type,
+          searchText: f.searchableContent || ''
+        }))
+      };
+      await fs.writeJSON('./public/generated/index.json', index, { spaces: 2 });
+      console.log('   ✅ index.json généré');
 
-        console.log('⚙️  Génération de la configuration avancée...');
-        const config = {
-          app: {
-            name: 'Formation Generator',
-            version: '1.0.1', // Version updated
-            buildDate: new Date().toISOString()
-          },
-          formations: {
-            basePath: '/formations', // Chemin public si les JSON sont servis
-            total: formations.length
-          },
-          templates: TEMPLATES // Informations sur les templates disponibles
-        };
-        await fs.writeJSON('./public/generated/config.json', config, { spaces: 2 });
-        console.log('   ✅ config.json généré.');
+      console.log('⚙️  Génération de la configuration...');
+      const config = {
+        app: {
+          name: 'Formation Generator',
+          version: '1.0.2',
+          buildDate: new Date().toISOString()
+        },
+        formations: {
+          basePath: '/formations',
+          total: formations.length
+        },
+        templates: TEMPLATES
+      };
+      await fs.writeJSON('./public/generated/config.json', config, { spaces: 2 });
+      console.log('   ✅ config.json généré');
 
-        console.log(`\n🎉 GÉNÉRATION AVANCÉE TERMINÉE !`);
-        console.log(`📊 Statistiques:`);
-        console.log(`   - ${formations.length} formations traitées.`);
-        const avgScore = Math.round(formations.reduce((sum, f) => sum + f.qualityScore, 0) / formations.length);
-        const totalDurationSum = formations.reduce((sum, f) => sum + f.estimatedTotalDuration, 0);
-        console.log(`   - ${totalDurationSum} minutes de contenu total estimé.`);
-        console.log(`   - Score qualité moyen: ${avgScore}/100`);
+      console.log(`\n🎉 GÉNÉRATION TERMINÉE !`);
+      console.log(`📊 Statistiques:`);
+      console.log(`   - ${formations.length} formations traitées`);
+      const avgScore = Math.round(formations.reduce((sum, f) => sum + f.qualityScore, 0) / formations.length);
+      const totalDurationSum = formations.reduce((sum, f) => sum + f.estimatedTotalDuration, 0);
+      console.log(`   - ${totalDurationSum} minutes de contenu total`);
+      console.log(`   - Score qualité moyen: ${avgScore}/100`);
     } else {
-        console.log('\n⚠️ Aucune formation n\'a été générée avec succès.');
+      console.log('\n⚠️ Aucune formation n\'a été générée avec succès.');
     }
 
   } catch (error) {
