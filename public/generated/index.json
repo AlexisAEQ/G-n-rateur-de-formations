@@ -1,6 +1,6 @@
 {
   "totalFormations": 1,
-  "lastGenerated": "2025-06-02T18:38:24.163Z",
+  "lastGenerated": "2025-06-02T18:53:56.488Z",
   "formations": [
     {
       "slug": "formation_maths_robotique",
@@ -10,7 +10,7 @@
       "duration": 150,
       "difficulty": "Avancée",
       "moduleCount": 6,
-      "estimatedDuration": 159,
+      "estimatedDuration": 164,
       "qualityScore": 100,
       "template": "SkillsTemplate",
       "features": [
