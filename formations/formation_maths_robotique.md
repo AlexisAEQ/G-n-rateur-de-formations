@@ -2,15 +2,15 @@
 # === MÉTADONNÉES DE FORMATION ===
 title: "Mathématiques pour Techniciens en Robotique"
 type: "skills"
-company: "Institut Technique Avancé"
-duration: 240
-difficulty: "intermédiaire"
-instructor: "Dr. Marie Lavoie"
+company: "AEQ"
+duration: 150
+difficulty: "Avancée"
+instructor: "Alexis Ross"
 version: "1.0"
 last_updated: "2025-05-28"
 
 # === CONFIGURATION VISUELLE ===
-theme: "corporate"
+theme: "industrial"
 primary_color: "#059669"
 accent_color: "#dc2626"
 
